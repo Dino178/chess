@@ -31,9 +31,9 @@ function addPersonalityBot(name, elo, pieceLetter) {
     allBots.push({ id: 'pers_' + name.toLowerCase().replace(/[^a-z0-9]/g, ''), name: `${name} (${pieces[pieceLetter]} Lover)`, elo: elo, type: 'personality', fav: pieceLetter.toLowerCase() }); 
 }
 
-addBot("Timmy The Terrible", 100);
+addBot("Pam", 100);
 addBot("Jimmy", 550);
-addBot("Nelson", 800);
+addBot("Valerie", 800);
 addBot("Maria", 1200);
 addBot("Viktor", 1800);
 addBot("Magnus", 2800);
@@ -48,6 +48,7 @@ let gameActive = false, botThinking = false;
 let gameHistory = []; 
 let timeW = 600, timeB = 600, timerInterval = null;
 let selectedSquare = null; 
+let currentEngineMoves = []; // Stores Stockfish's Top 5 moves for bot logic
 let playerProfile = JSON.parse(localStorage.getItem('chessProfile')) || { elo: null, placementGames: 0, placementScore: 0 };
 
 const PIECE_VALUES = { 'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0 };
@@ -133,7 +134,7 @@ function populateBotDropdown() {
 function loadEngine() { return fetch('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js').then(res => res.text()).then(code => new Worker(URL.createObjectURL(new Blob([code], {type: 'application/javascript'})))); }
 
 // ==========================================
-// 4. GAME FLOW, HIGHLIGHT LOGIC & CLICK TO MOVE
+// 4. GAME FLOW & CLICK TO MOVE
 // ==========================================
 function startGame(isCustomFen = false) {
     if(!isCustomFen) { game.reset(); board.start(); } else { board.position(game.fen()); }
@@ -178,16 +179,15 @@ function startGame(isCustomFen = false) {
     if(game.turn() === 'b' && currentMode !== 'pvp') { botThinking = true; setTimeout(triggerBot, 500); }
 }
 
-// FIXED: Intercept mousedown before drag logic swallows the click
+// FIXED: Bulletproof Click-to-Move
 function setupClickToMove() {
     $('#myBoard').on('mousedown', '.square-55d63, .piece-417db', function(e) {
         if (!gameActive || botThinking) return;
         
-        let squareEl = $(e.target).closest('.square-55d63');
-        if (!squareEl.length) return;
-        
-        let square = squareEl.attr('data-square');
-        
+        let target = $(e.target);
+        let square = target.hasClass('square-55d63') ? target.attr('data-square') : target.parent('.square-55d63').attr('data-square');
+        if (!square) return;
+
         if (selectedSquare) {
             let move = game.move({ from: selectedSquare, to: square, promotion: 'q' });
             if (move) {
@@ -265,59 +265,75 @@ function rebuildMoveTable() {
 function calculateMaterial() {
     let counts = { w: {p:0,n:0,b:0,r:0,q:0}, b: {p:0,n:0,b:0,r:0,q:0} };
     let boardState = game.board();
-    
     for(let r=0; r<8; r++) for(let c=0; c<8; c++) { let piece = boardState[r][c]; if(piece && piece.type !== 'k') counts[piece.color][piece.type]++; }
-    
     let start = {p:8, n:2, b:2, r:2, q:1};
     let deadW = '', deadB = '', scoreW = 0, scoreB = 0;
-
     for (let p in start) {
         let missingW = start[p] - counts.w[p]; let missingB = start[p] - counts.b[p];
         for(let i=0; i<missingW; i++) { deadW += `<div class="grave-piece" style="background-image:url('https://chessboardjs.com/img/chesspieces/wikipedia/w${p.toUpperCase()}.png')"></div>`; scoreB += PIECE_VALUES[p]; }
         for(let i=0; i<missingB; i++) { deadB += `<div class="grave-piece" style="background-image:url('https://chessboardjs.com/img/chesspieces/wikipedia/b${p.toUpperCase()}.png')"></div>`; scoreW += PIECE_VALUES[p]; }
     }
-
     document.getElementById('grave-w').innerHTML = deadB; document.getElementById('grave-b').innerHTML = deadW;
     let diff = scoreW - scoreB;
     document.getElementById('mat-w').innerText = diff > 0 ? `+${diff}` : ''; document.getElementById('mat-b').innerText = diff < 0 ? `+${Math.abs(diff)}` : '';
 }
 
 // ==========================================
-// 6. BOT ENGINE (Pure Native Elo Constraints)
+// 6. BOT ENGINE (MultiPV Suboptimal Move Picker)
 // ==========================================
 function triggerBot() {
     if (!gameActive) return;
     if (!engine) return window.setTimeout(triggerBot, 500); 
 
     let possibleMoves = game.moves({ verbose: true });
-    
     if (currentBot.type === 'personality') {
         let favMoves = possibleMoves.filter(m => m.piece === currentBot.fav);
         if (favMoves.length > 0 && Math.random() < 0.75) { botChat(`Behold my favorite piece!`); return makeMoveOnBoard(favMoves[Math.floor(Math.random() * favMoves.length)].san); }
     }
 
     let elo = currentBot.elo;
-    
-    // NATIVE ELO MATH: No RNG blunders, just strictly limiting Stockfish's brain
-    // Depth: Hard restricted to 1 move deep for beginners, climbs to 20 for GM.
     let depth = Math.max(1, Math.min(20, Math.floor(elo / 150))); 
-    
-    // Skill Level: Kept at 0 until ~500 Elo, then climbs.
     let skillLevel = Math.max(0, Math.min(20, Math.floor((elo - 500) / 100)));
+    let moveTime = Math.max(100, Math.min(3000, Math.floor(elo / 1.5)));
     
-    // Move Time: Force lower bots to 'panic' and spit out moves without calculating
-    let moveTime = Math.max(10, Math.min(3000, Math.floor(elo / 1.5)));
-
+    // MultiPV forces Stockfish to calculate multiple lines.
+    // A 100 Elo bot will ask for 5 lines so it can pick the absolute worst one.
+    let multiPvCount = elo < 1000 ? 5 : 1;
+    
+    currentEngineMoves = []; // Clear previous moves
     engine.postMessage(`setoption name Skill Level value ${skillLevel}`);
+    engine.postMessage(`setoption name MultiPV value ${multiPvCount}`);
     engine.postMessage('position fen ' + game.fen());
     engine.postMessage(`go depth ${depth} movetime ${moveTime}`);
 }
 
 function handleEngineMessage(event) {
-    if (event.data.startsWith('bestmove')) {
-        let move = event.data.split(' ')[1];
+    let line = event.data;
+    
+    // Parse the multiple move options generated by MultiPV
+    if (line.includes('info depth') && line.includes('multipv')) {
+        let pvMatch = line.match(/multipv (\d+).* pv ([a-h][1-8][a-h][1-8][qrbn]?)/);
+        if (pvMatch) {
+            let rank = parseInt(pvMatch[1]) - 1; // 0-indexed
+            currentEngineMoves[rank] = pvMatch[2];
+        }
+    }
+    
+    if (line.startsWith('bestmove')) {
+        let bestMove = line.split(' ')[1];
+        let moveToPlay = bestMove;
+        let elo = currentBot.elo;
+        
+        // If the bot is low Elo, purposely pick a sub-optimal move from the MultiPV list
+        if (elo < 1000 && currentEngineMoves.length > 1) {
+            // 100 Elo picks rank 4 (the 5th best move). 900 Elo picks rank 0 (the best move).
+            let targetIndex = Math.floor((1000 - elo) / 200); 
+            targetIndex = Math.min(targetIndex, currentEngineMoves.length - 1);
+            if (currentEngineMoves[targetIndex]) moveToPlay = currentEngineMoves[targetIndex];
+        }
+
         let delay = Math.floor(Math.random() * 1000) + 500; 
-        setTimeout(() => makeMoveOnBoard(move), delay);
+        setTimeout(() => makeMoveOnBoard(moveToPlay), delay);
     }
 }
 
@@ -338,7 +354,7 @@ function updateClocks() {
 }
 function checkGameOver() {
     if (!game.game_over()) return;
-    let result = 'draw', msg = "A draw.";
+    let result = 'draw', msg = "Game drawn.";
     if (game.in_checkmate()) { result = game.turn() === 'w' ? 'loss' : 'win'; msg = result === 'win' ? "You win! Checkmate." : "Checkmate."; }
     endGame(result, msg);
 }
@@ -354,8 +370,10 @@ function endGame(result, msg) {
         localStorage.setItem('chessProfile', JSON.stringify(playerProfile)); updateProfileUI();
     } else if (currentMode === 'bot') {
         let d = JSON.parse(localStorage.getItem('chessLeaderboard')) || {};
-        if (!d[currentBot.id]) d[currentBot.id] = { wins: 0, losses: 0, name: currentBot.name };
-        result === 'win' ? d[currentBot.id].wins++ : d[currentBot.id].losses++;
+        if (!d[currentBot.id]) d[currentBot.id] = { wins: 0, losses: 0, draws: 0, name: currentBot.name };
+        if (result === 'win') d[currentBot.id].wins++;
+        else if (result === 'loss') d[currentBot.id].losses++;
+        else d[currentBot.id].draws++; // ADDED: Native Draw Tracking
         localStorage.setItem('chessLeaderboard', JSON.stringify(d)); updateLeaderboardUI();
     }
     if(analysisEngine) runGameAnalysis();
@@ -364,10 +382,15 @@ function endGame(result, msg) {
 function updateStatus(override) { document.getElementById('status').innerText = override || `${game.turn() === 'w' ? 'White' : 'Black'} to move`; }
 function botChat(msg) { document.getElementById('chat-messages').innerHTML += `<p><strong style="color:#5865f2;">System:</strong> ${msg}</p>`; document.getElementById('chat-box').scrollTop = 9999; }
 function updateProfileUI() { document.getElementById('player-elo-display').innerText = playerProfile.elo || "Unranked"; document.getElementById('placement-warning').style.display = playerProfile.elo ? 'none' : 'block'; }
-function updateLeaderboardUI() { let lb = document.getElementById('leaderboard-stats'); lb.innerHTML = ''; let d = JSON.parse(localStorage.getItem('chessLeaderboard')) || {}; for (let [id, s] of Object.entries(d)) lb.innerHTML += `<div class="stat-row"><span class="stat-name">${s.name}</span><span class="stat-score">${s.wins}W - ${s.losses}L</span></div>`; }
+function updateLeaderboardUI() { 
+    let lb = document.getElementById('leaderboard-stats'); lb.innerHTML = ''; 
+    let d = JSON.parse(localStorage.getItem('chessLeaderboard')) || {}; 
+    // UPDATED UI: Now displays draws
+    for (let [id, s] of Object.entries(d)) lb.innerHTML += `<div class="stat-row"><span class="stat-name">${s.name}</span><span class="stat-score">${s.wins}W - ${s.losses}L - ${s.draws || 0}D</span></div>`; 
+}
 
 // ==========================================
-// 8. ASYNC ANALYSIS
+// 8. ASYNC ANALYSIS (Perspective Fixed)
 // ==========================================
 function evaluatePositionAsync(fen) {
     return new Promise(res => {
@@ -377,9 +400,10 @@ function evaluatePositionAsync(fen) {
             if (e.data.includes('bestmove')) { analysisEngine.removeEventListener('message', listener); res(score); }
         };
         analysisEngine.addEventListener('message', listener);
-        analysisEngine.postMessage('position fen ' + fen); analysisEngine.postMessage('go depth 8');
+        analysisEngine.postMessage('position fen ' + fen); analysisEngine.postMessage('go depth 12'); // Increased depth for accuracy
     });
 }
+
 async function runGameAnalysis() {
     document.getElementById('analysis-panel').style.display = 'block';
     let bEl = document.getElementById('move-breakdown'), pEl = document.getElementById('analysis-progress');
@@ -387,18 +411,24 @@ async function runGameAnalysis() {
     
     for (let i = 1; i < gameHistory.length; i++) {
         pEl.innerText = `(${i}/${gameHistory.length - 1})`;
-        let move = gameHistory[i], raw = await evaluatePositionAsync(move.fen);
-        let ev = game.turn() === 'w' ? raw : -raw, diff = ev - prev;
+        let move = gameHistory[i];
+        let raw = await evaluatePositionAsync(move.fen);
+        
+        // FIXED PERSPECTIVE: Stockfish evaluates from the view of the player WHOSE TURN IT IS NEXT.
+        let isWhiteNext = move.fen.includes(' w ');
+        let evalForWhite = isWhiteNext ? raw : -raw; 
+        
+        let diff = evalForWhite - prev;
         
         if (move.color === 'w') {
             let tag = "", col = "";
             if (diff < -300) { tag = "Blunder ??"; col = "#e74c3c"; stats.blunder++; }
-            else if (diff < -150) { tag = "Mistake ?"; col = "#f1c40f"; stats.mistake++; }
-            else if (diff > 200 && ev > 0) { tag = "Brilliant !!"; col = "#1abc9c"; stats.brilliant++; }
-            else if (diff > 100) { tag = "Great !"; col = "#3498db"; stats.great++; }
+            else if (diff < -100) { tag = "Mistake ?"; col = "#f1c40f"; stats.mistake++; }
+            else if (diff > 150 && evalForWhite > 0) { tag = "Brilliant !!"; col = "#1abc9c"; stats.brilliant++; }
+            else if (diff > 50) { tag = "Great !"; col = "#3498db"; stats.great++; }
             if (tag) bEl.innerHTML += `<p><strong style="color:${col}">${tag}</strong> on move ${move.move}</p>`;
         }
-        prev = ev;
+        prev = evalForWhite;
     }
     document.getElementById('analysis-status').innerHTML = "<strong>Complete!</strong>";
     document.getElementById('stat-brilliant').innerText = stats.brilliant; document.getElementById('stat-great').innerText = stats.great;
