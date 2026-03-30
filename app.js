@@ -41,6 +41,7 @@ function addPersonalityBot(name, elo, pieceLetter) {
 addBot("Paul", 200);
 addBot("Daniella", 550);
 addBot("Valerie", 800);
+addBot("Soresmily", 1000);
 addBot("Maria", 1200);
 addBot("Landon", 1800);
 addBot("Magnus", 2800);
