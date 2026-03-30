@@ -47,7 +47,7 @@ let engine = null, analysisEngine = null;
 let gameActive = false, botThinking = false;
 let gameHistory = []; 
 let timeW = 600, timeB = 600, timerInterval = null;
-let selectedSquare = null; // For Click-to-Move
+let selectedSquare = null; 
 let playerProfile = JSON.parse(localStorage.getItem('chessProfile')) || { elo: null, placementGames: 0, placementScore: 0 };
 
 const PIECE_VALUES = { 'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0 };
@@ -84,7 +84,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('start-btn').addEventListener('click', () => startGame(false));
     document.getElementById('resign-btn').addEventListener('click', () => { if(gameActive) endGame('loss', "Black wins by resignation"); });
     
-    // NEW: Intelligent Draw Logic
     document.getElementById('draw-btn').addEventListener('click', async () => { 
         if(!gameActive || currentMode === 'pvp') return;
         botChat("Let me evaluate the board...");
@@ -92,13 +91,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let score = await evaluatePositionAsync(game.fen());
         let botScore = game.turn() === 'b' ? score : -score; 
         
-        if (botScore > 100) {
-            botChat("No way! I am winning this.");
-        } else if (botScore < -150) {
-            endGame('draw', "Okay, you drive a hard bargain. Draw accepted.");
-        } else {
-            endGame('draw', "It's a dead draw anyway. I accept.");
-        }
+        if (botScore > 100) { botChat("No way! I am winning this."); } 
+        else if (botScore < -150) { endGame('draw', "Okay, you drive a hard bargain. Draw accepted."); } 
+        else { endGame('draw', "It's a dead draw anyway. I accept."); }
     });
     
     document.getElementById('remove-timer-btn').addEventListener('click', () => {
@@ -138,7 +133,7 @@ function populateBotDropdown() {
 function loadEngine() { return fetch('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js').then(res => res.text()).then(code => new Worker(URL.createObjectURL(new Blob([code], {type: 'application/javascript'})))); }
 
 // ==========================================
-// 4. GAME FLOW & HIGHLIGHT LOGIC
+// 4. GAME FLOW, HIGHLIGHT LOGIC & CLICK TO MOVE
 // ==========================================
 function startGame(isCustomFen = false) {
     if(!isCustomFen) { game.reset(); board.start(); } else { board.position(game.fen()); }
@@ -183,11 +178,15 @@ function startGame(isCustomFen = false) {
     if(game.turn() === 'b' && currentMode !== 'pvp') { botThinking = true; setTimeout(triggerBot, 500); }
 }
 
-// NEW: Click-to-Move Logic
+// FIXED: Intercept mousedown before drag logic swallows the click
 function setupClickToMove() {
-    $('#myBoard').on('click', '.square-55d63', function() {
+    $('#myBoard').on('mousedown', '.square-55d63, .piece-417db', function(e) {
         if (!gameActive || botThinking) return;
-        let square = $(this).attr('data-square');
+        
+        let squareEl = $(e.target).closest('.square-55d63');
+        if (!squareEl.length) return;
+        
+        let square = squareEl.attr('data-square');
         
         if (selectedSquare) {
             let move = game.move({ from: selectedSquare, to: square, promotion: 'q' });
@@ -195,7 +194,9 @@ function setupClickToMove() {
                 board.position(game.fen());
                 clearHighlights(); selectedSquare = null;
                 handleMoveVisuals(move);
-                if (currentMode !== 'pvp' && gameActive && game.turn() === 'b') { botThinking = true; document.getElementById('undo-btn').disabled = true; window.setTimeout(triggerBot, 250); }
+                if (currentMode !== 'pvp' && gameActive && game.turn() === 'b') { 
+                    botThinking = true; document.getElementById('undo-btn').disabled = true; window.setTimeout(triggerBot, 250); 
+                }
             } else {
                 let piece = game.get(square);
                 if (piece && piece.color === game.turn()) highlightLegalMoves(square);
@@ -282,13 +283,14 @@ function calculateMaterial() {
 }
 
 // ==========================================
-// 6. BOT ENGINE (Exponential Blunder Math)
+// 6. BOT ENGINE (Pure Native Elo Constraints)
 // ==========================================
 function triggerBot() {
     if (!gameActive) return;
     if (!engine) return window.setTimeout(triggerBot, 500); 
 
     let possibleMoves = game.moves({ verbose: true });
+    
     if (currentBot.type === 'personality') {
         let favMoves = possibleMoves.filter(m => m.piece === currentBot.fav);
         if (favMoves.length > 0 && Math.random() < 0.75) { botChat(`Behold my favorite piece!`); return makeMoveOnBoard(favMoves[Math.floor(Math.random() * favMoves.length)].san); }
@@ -296,19 +298,16 @@ function triggerBot() {
 
     let elo = currentBot.elo;
     
-    // NEW: Highly Accurate Exponential Curve
-    let blunderChance = 0;
-    if (elo < 1200) { blunderChance = Math.pow((1200 - elo) / 1100, 3); }
-
-    let depth = Math.max(1, Math.min(20, Math.floor(elo / 300))); 
-    let skillLevel = Math.max(0, Math.min(20, Math.floor((elo - 400) / 100)));
-    let moveTime = Math.max(50, Math.min(3000, Math.floor(elo / 2)));
-
-    if (Math.random() < blunderChance) {
-        let humanDelay = Math.floor(Math.random() * 1500) + 500; 
-        return setTimeout(() => makeMoveOnBoard(possibleMoves[Math.floor(Math.random() * possibleMoves.length)].san), humanDelay);
-    }
+    // NATIVE ELO MATH: No RNG blunders, just strictly limiting Stockfish's brain
+    // Depth: Hard restricted to 1 move deep for beginners, climbs to 20 for GM.
+    let depth = Math.max(1, Math.min(20, Math.floor(elo / 150))); 
     
+    // Skill Level: Kept at 0 until ~500 Elo, then climbs.
+    let skillLevel = Math.max(0, Math.min(20, Math.floor((elo - 500) / 100)));
+    
+    // Move Time: Force lower bots to 'panic' and spit out moves without calculating
+    let moveTime = Math.max(10, Math.min(3000, Math.floor(elo / 1.5)));
+
     engine.postMessage(`setoption name Skill Level value ${skillLevel}`);
     engine.postMessage('position fen ' + game.fen());
     engine.postMessage(`go depth ${depth} movetime ${moveTime}`);
