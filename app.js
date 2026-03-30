@@ -27,16 +27,27 @@ function playSound(type) {
 const allBots = [];
 function addBot(name, elo) { allBots.push({ id: 'bot_' + name.toLowerCase().replace(/[^a-z0-9]/g, ''), name: `${name} (Elo ${elo})`, elo: elo, type: 'ladder' }); }
 function addPersonalityBot(name, elo, pieceLetter) { 
-    let pieces = { 'q': 'Queen', 'n': 'Knight', 'b': 'Bishop' }; 
-    allBots.push({ id: 'pers_' + name.toLowerCase().replace(/[^a-z0-9]/g, ''), name: `${name} (${pieces[pieceLetter]} Lover)`, elo: elo, type: 'personality', fav: pieceLetter.toLowerCase() }); 
+    // We added 'r', 'p', and 'k' to this list!
+    let pieces = { 'q': 'Queen', 'n': 'Knight', 'b': 'Bishop', 'r': 'Rook', 'p': 'Pawn', 'k': 'King' }; 
+    allBots.push({ 
+        id: 'pers_' + name.toLowerCase().replace(/[^a-z0-9]/g, ''), 
+        name: `${name} (${pieces[pieceLetter] || 'Piece'} Lover)`, 
+        elo: elo, 
+        type: 'personality', 
+        fav: pieceLetter.toLowerCase() 
+    }); 
 }
 
 addBot("Pam", 100);
-addBot("Jimmy", 550);
+addBot("Daniella", 550);
 addBot("Valerie", 800);
 addBot("Maria", 1200);
-addBot("Viktor", 1800);
+addBot("Landon", 1800);
 addBot("Magnus", 2800);
+addPersonalityBot("Victoria", 1200, "p"); 
+addPersonalityBot("Paul", 700, "p");   // Pawn Lover
+addPersonalityBot("Rocky", 1100, "r"); // Rook Lover
+addPersonalityBot("Chris", 200, "k"); // King Lover
 
 // ==========================================
 // 2. SYSTEM VARIABLES
