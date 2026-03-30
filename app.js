@@ -21,7 +21,7 @@ const sfxEnd = new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_
 
 function playSound(type) {
     let p = type === 'end' ? sfxEnd.play() : type === 'check' ? sfxCheck.play() : type === 'capture' ? sfxCapture.play() : sfxMove.play();
-    if (p !== undefined) p.catch(() => {}); // Ignore browser autoplay blocks
+    if (p !== undefined) p.catch(() => {});
 }
 
 const allBots = [];
@@ -31,12 +31,12 @@ function addPersonalityBot(name, elo, pieceLetter) {
     allBots.push({ id: 'pers_' + name.toLowerCase().replace(/[^a-z0-9]/g, ''), name: `${name} (${pieces[pieceLetter]} Lover)`, elo: elo, type: 'personality', fav: pieceLetter.toLowerCase() }); 
 }
 
-addBot("Todd The Terrible", 200);
+addBot("Timmy The Terrible", 100);
+addBot("Jimmy", 550);
 addBot("Nelson", 800);
 addBot("Maria", 1200);
 addBot("Viktor", 1800);
 addBot("Magnus", 2800);
-addPersonalityBot("Victoria", 1200, "q"); 
 
 // ==========================================
 // 2. SYSTEM VARIABLES
@@ -47,6 +47,7 @@ let engine = null, analysisEngine = null;
 let gameActive = false, botThinking = false;
 let gameHistory = []; 
 let timeW = 600, timeB = 600, timerInterval = null;
+let selectedSquare = null; // For Click-to-Move
 let playerProfile = JSON.parse(localStorage.getItem('chessProfile')) || { elo: null, placementGames: 0, placementScore: 0 };
 
 const PIECE_VALUES = { 'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0 };
@@ -82,9 +83,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('start-btn').addEventListener('click', () => startGame(false));
     document.getElementById('resign-btn').addEventListener('click', () => { if(gameActive) endGame('loss', "Black wins by resignation"); });
-    document.getElementById('draw-btn').addEventListener('click', () => { if(gameActive) endGame('draw', "Game drawn by agreement"); });
     
-    // NEW: Remove Timer Logic
+    // NEW: Intelligent Draw Logic
+    document.getElementById('draw-btn').addEventListener('click', async () => { 
+        if(!gameActive || currentMode === 'pvp') return;
+        botChat("Let me evaluate the board...");
+        
+        let score = await evaluatePositionAsync(game.fen());
+        let botScore = game.turn() === 'b' ? score : -score; 
+        
+        if (botScore > 100) {
+            botChat("No way! I am winning this.");
+        } else if (botScore < -150) {
+            endGame('draw', "Okay, you drive a hard bargain. Draw accepted.");
+        } else {
+            endGame('draw', "It's a dead draw anyway. I accept.");
+        }
+    });
+    
     document.getElementById('remove-timer-btn').addEventListener('click', () => {
         if (!gameActive) return;
         clearInterval(timerInterval);
@@ -111,6 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     game = new Chess(); board = Chessboard('myBoard', config);
+    setupClickToMove();
     updateLeaderboardUI();
 });
 
@@ -126,19 +143,16 @@ function loadEngine() { return fetch('https://cdnjs.cloudflare.com/ajax/libs/sto
 function startGame(isCustomFen = false) {
     if(!isCustomFen) { game.reset(); board.start(); } else { board.position(game.fen()); }
     
-    gameActive = true; botThinking = false;
+    gameActive = true; botThinking = false; selectedSquare = null;
     gameHistory = [{fen: game.fen(), move: 'start', color: null}];
     
-    document.getElementById('resign-btn').disabled = false;
-    document.getElementById('draw-btn').disabled = false;
-    document.getElementById('undo-btn').disabled = false;
+    ['resign-btn', 'draw-btn', 'undo-btn'].forEach(id => document.getElementById(id).disabled = false);
     document.getElementById('chat-messages').innerHTML = '';
     document.getElementById('analysis-panel').style.display = 'none';
     document.getElementById('move-tbody').innerHTML = '';
     
     calculateMaterial();
     
-    // NEW: Dynamic Timer Handling
     let startingTime = parseInt(document.getElementById('time-control').value);
     timeW = startingTime; timeB = startingTime; 
     clearInterval(timerInterval); 
@@ -146,8 +160,7 @@ function startGame(isCustomFen = false) {
     let clocks = document.querySelectorAll('.clock');
     if (startingTime > 0) {
         clocks.forEach(c => c.style.display = 'block');
-        updateClocks();
-        timerInterval = setInterval(tickTimer, 1000);
+        updateClocks(); timerInterval = setInterval(tickTimer, 1000);
         document.getElementById('remove-timer-btn').disabled = false;
     } else {
         clocks.forEach(c => c.style.display = 'none');
@@ -157,7 +170,7 @@ function startGame(isCustomFen = false) {
     clearHighlights();
     
     if (currentMode === 'placement') {
-        currentBot = { id: 'placement_bot', name: `Placement Evaluator`, elo: playerProfile.placementGames === 0 ? 1200 : (playerProfile.placementScore > 0 ? 1600 : 800), type: 'ladder' };
+        currentBot = { id: 'placement_bot', name: `Evaluator`, elo: playerProfile.placementGames === 0 ? 1200 : (playerProfile.placementScore > 0 ? 1600 : 800), type: 'ladder' };
         botChat(`Placement Game ${playerProfile.placementGames + 1}/3.`);
     } else if (currentMode === 'bot') {
         currentBot = allBots.find(b => b.id === document.getElementById('bot-select').value);
@@ -170,16 +183,47 @@ function startGame(isCustomFen = false) {
     if(game.turn() === 'b' && currentMode !== 'pvp') { botThinking = true; setTimeout(triggerBot, 500); }
 }
 
+// NEW: Click-to-Move Logic
+function setupClickToMove() {
+    $('#myBoard').on('click', '.square-55d63', function() {
+        if (!gameActive || botThinking) return;
+        let square = $(this).attr('data-square');
+        
+        if (selectedSquare) {
+            let move = game.move({ from: selectedSquare, to: square, promotion: 'q' });
+            if (move) {
+                board.position(game.fen());
+                clearHighlights(); selectedSquare = null;
+                handleMoveVisuals(move);
+                if (currentMode !== 'pvp' && gameActive && game.turn() === 'b') { botThinking = true; document.getElementById('undo-btn').disabled = true; window.setTimeout(triggerBot, 250); }
+            } else {
+                let piece = game.get(square);
+                if (piece && piece.color === game.turn()) highlightLegalMoves(square);
+                else { clearHighlights(); selectedSquare = null; }
+            }
+        } else {
+            let piece = game.get(square);
+            if (piece && piece.color === game.turn()) highlightLegalMoves(square);
+        }
+    });
+}
+
+function highlightLegalMoves(square) {
+    clearHighlights(); selectedSquare = square;
+    $('#myBoard .square-' + square).addClass('selected-square');
+    game.moves({ square: square, verbose: true }).forEach(m => $('#myBoard .square-' + m.to).addClass('legal-move'));
+}
+
 function onDragStart(source, piece) {
     if (!gameActive || game.game_over() || botThinking) return false;
     if (currentMode !== 'pvp' && piece.search(/^b/) !== -1) return false; 
     let moves = game.moves({ square: source, verbose: true });
     if (moves.length === 0) return false; 
-    clearHighlights(); moves.forEach(m => $('#myBoard .square-' + m.to).addClass('legal-move'));
+    highlightLegalMoves(source);
 }
 
 function onDrop(source, target) {
-    clearHighlights();
+    clearHighlights(); selectedSquare = null;
     let move = game.move({ from: source, to: target, promotion: 'q' });
     if (move === null) return 'snapback'; 
     handleMoveVisuals(move);
@@ -198,7 +242,7 @@ function handleMoveVisuals(move) {
     calculateMaterial(); updateStatus(); checkGameOver();
 }
 
-function clearHighlights() { $('#myBoard .square-55d63').removeClass('legal-move in-check'); }
+function clearHighlights() { $('#myBoard .square-55d63').removeClass('legal-move in-check selected-square'); }
 function highlightCheck() {
     if (game.in_check()) {
         let b = game.board(), col = game.turn();
@@ -215,40 +259,30 @@ function rebuildMoveTable() {
 }
 
 // ==========================================
-// 5. MATERIAL CALCULATOR (GRAVEYARD)
+// 5. MATERIAL CALCULATOR
 // ==========================================
 function calculateMaterial() {
     let counts = { w: {p:0,n:0,b:0,r:0,q:0}, b: {p:0,n:0,b:0,r:0,q:0} };
     let boardState = game.board();
     
-    for(let r=0; r<8; r++) {
-        for(let c=0; c<8; c++) {
-            let piece = boardState[r][c];
-            if(piece && piece.type !== 'k') counts[piece.color][piece.type]++;
-        }
-    }
+    for(let r=0; r<8; r++) for(let c=0; c<8; c++) { let piece = boardState[r][c]; if(piece && piece.type !== 'k') counts[piece.color][piece.type]++; }
     
     let start = {p:8, n:2, b:2, r:2, q:1};
     let deadW = '', deadB = '', scoreW = 0, scoreB = 0;
 
     for (let p in start) {
-        let missingW = start[p] - counts.w[p];
-        let missingB = start[p] - counts.b[p];
-        
+        let missingW = start[p] - counts.w[p]; let missingB = start[p] - counts.b[p];
         for(let i=0; i<missingW; i++) { deadW += `<div class="grave-piece" style="background-image:url('https://chessboardjs.com/img/chesspieces/wikipedia/w${p.toUpperCase()}.png')"></div>`; scoreB += PIECE_VALUES[p]; }
         for(let i=0; i<missingB; i++) { deadB += `<div class="grave-piece" style="background-image:url('https://chessboardjs.com/img/chesspieces/wikipedia/b${p.toUpperCase()}.png')"></div>`; scoreW += PIECE_VALUES[p]; }
     }
 
-    document.getElementById('grave-w').innerHTML = deadB;
-    document.getElementById('grave-b').innerHTML = deadW;
-    
+    document.getElementById('grave-w').innerHTML = deadB; document.getElementById('grave-b').innerHTML = deadW;
     let diff = scoreW - scoreB;
-    document.getElementById('mat-w').innerText = diff > 0 ? `+${diff}` : '';
-    document.getElementById('mat-b').innerText = diff < 0 ? `+${Math.abs(diff)}` : '';
+    document.getElementById('mat-w').innerText = diff > 0 ? `+${diff}` : ''; document.getElementById('mat-b').innerText = diff < 0 ? `+${Math.abs(diff)}` : '';
 }
 
 // ==========================================
-// 6. BOT ENGINE (Dynamic Math + Human Delay)
+// 6. BOT ENGINE (Exponential Blunder Math)
 // ==========================================
 function triggerBot() {
     if (!gameActive) return;
@@ -261,7 +295,11 @@ function triggerBot() {
     }
 
     let elo = currentBot.elo;
-    let blunderChance = elo < 1000 ? ((1000 - elo) / 900) * 0.50 : 0;
+    
+    // NEW: Highly Accurate Exponential Curve
+    let blunderChance = 0;
+    if (elo < 1200) { blunderChance = Math.pow((1200 - elo) / 1100, 3); }
+
     let depth = Math.max(1, Math.min(20, Math.floor(elo / 300))); 
     let skillLevel = Math.max(0, Math.min(20, Math.floor((elo - 400) / 100)));
     let moveTime = Math.max(50, Math.min(3000, Math.floor(elo / 2)));
@@ -307,8 +345,7 @@ function checkGameOver() {
 }
 function endGame(result, msg) {
     gameActive = false; botThinking = false; clearInterval(timerInterval);
-    document.getElementById('resign-btn').disabled = true; document.getElementById('draw-btn').disabled = true; 
-    document.getElementById('undo-btn').disabled = true; document.getElementById('remove-timer-btn').disabled = true;
+    ['resign-btn', 'draw-btn', 'undo-btn', 'remove-timer-btn'].forEach(id => document.getElementById(id).disabled = true);
     updateStatus(msg); botChat(msg);
     
     if (currentMode === 'placement') {
