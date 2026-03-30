@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grandmaster Grid</title>
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="theme-wood">
+    <div id="debug-log" style="background: #ffcccc; color: #900; padding: 10px; display: none; border: 2px solid red; margin-bottom: 20px; font-family: monospace;">
+        <strong>System Errors:</strong><ul id="error-list"></ul>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <div class="player-card">
+                <h3>Your Profile</h3>
+                <p>Elo: <span id="player-elo-display" style="color:#faa61a; font-weight:bold;">Unranked</span></p>
+                <p id="placement-warning" style="font-size: 12px; color: #ed4245;">Play Placement Mode to get ranked!</p>
+            </div>
+
+            <h2>Match Setup</h2>
+            <select id="game-mode">
+                <option value="bot">Play vs Bot (Ranked)</option>
+                <option value="placement">Placement Match (Elo Test)</option>
+                <option value="pvp">2 Player (Local)</option>
+            </select>
+
+            <select id="time-control" style="margin-top: 5px;">
+                <option value="600">Rapid (10 min)</option>
+                <option value="300">Blitz (5 min)</option>
+                <option value="180">Blitz (3 min)</option>
+                <option value="60">Bullet (1 min)</option>
+                <option value="0">Unlimited (No Timer)</option>
+            </select>
+
+            <div id="bot-settings">
+                <select id="bot-select" style="margin-top: 5px;"></select>
+            </div>
+
+            <div class="button-group" style="margin-top: 10px;">
+                <button id="start-btn" style="background: #43b581;">Start Game</button>
+            </div>
+            <div class="button-group" style="margin-top: 5px;">
+                <button id="resign-btn" disabled>Resign</button>
+                <button id="draw-btn" disabled>Draw</button>
+                <button id="remove-timer-btn" style="background: #e67e22;" disabled>Remove Timer</button>
+            </div>
+            <button id="undo-btn" style="margin-top: 5px; background: #f1c40f; color: #000; width: 100%;" disabled>⟲ Undo Move</button>
+            
+            <div class="status-box">
+                <span id="status">Waiting to start...</span>
+            </div>
+
+            <div class="chat-box" id="chat-box">
+                <div id="chat-messages"><p><em>Select your opponent and begin.</em></p></div>
+            </div>
+        </div>
+
+        <div class="board-area">
+            <div class="player-banner">
+                <div class="banner-info">
+                    <strong id="black-name">Opponent</strong>
+                    <div class="graveyard" id="grave-b"></div>
+                    <span class="material-adv" id="mat-b"></span>
+                </div>
+                <div class="clock" id="timer-b">10:00</div>
+            </div>
+
+            <div id="myBoard" style="width: 550px"></div>
+            
+            <div class="player-banner">
+                <div class="banner-info">
+                    <strong id="white-name">You</strong>
+                    <div class="graveyard" id="grave-w"></div>
+                    <span class="material-adv" id="mat-w"></span>
+                </div>
+                <div class="clock" id="timer-w">10:00</div>
+            </div>
+            
+            <div id="analysis-panel" style="display: none; margin-top: 20px; background: #2f3136; padding: 15px; border-radius: 8px; border: 2px solid #5865f2;">
+                <h3 style="margin-top:0; color: #5865f2; display: flex; justify-content: space-between;">
+                    Post-Game Analysis
+                    <button id="download-pgn" style="font-size: 12px; padding: 5px 10px; width: auto;">Download PGN</button>
+                </h3>
+                <p id="analysis-status">Analyzing moves... <span id="analysis-progress"></span></p>
+                <div id="analysis-results" style="display: flex; gap: 10px; justify-content: space-between; text-align: center;">
+                    <div class="eval-stat"><span style="color:#1abc9c; font-size: 20px;" id="stat-brilliant">0</span><br>Brilliant</div>
+                    <div class="eval-stat"><span style="color:#3498db; font-size: 20px;" id="stat-great">0</span><br>Great</div>
+                    <div class="eval-stat"><span style="color:#f1c40f; font-size: 20px;" id="stat-mistake">0</span><br>Mistakes</div>
+                    <div class="eval-stat"><span style="color:#e74c3c; font-size: 20px;" id="stat-blunder">0</span><br>Blunders</div>
+                </div>
+                <div id="move-breakdown" style="margin-top: 15px; max-height: 150px; overflow-y: auto; font-size: 13px;"></div>
+            </div>
+        </div>
+
+        <div class="sidebar right-panel">
+            <h2>Customization</h2>
+            <select id="board-theme">
+                <option value="theme-wood">Classic Wood</option>
+                <option value="theme-green">Tournament Green</option>
+                <option value="theme-midnight">Midnight Blue</option>
+            </select>
+
+            <div style="margin-top: 10px; background: #202225; padding: 10px; border-radius: 6px;">
+                <label style="font-size: 12px; color: #8e9297;">Custom FEN (Sandbox):</label>
+                <input type="text" id="fen-input" placeholder="Paste FEN to load position...">
+                <button id="load-fen-btn" style="background: #4f545c; margin-top: 5px;">Load FEN</button>
+            </div>
+
+            <h2 style="margin-top: 15px;">Move History</h2>
+            <div id="move-history-panel">
+                <table id="move-table">
+                    <thead><tr><th>#</th><th>White</th><th>Black</th></tr></thead>
+                    <tbody id="move-tbody"></tbody>
+                </table>
+            </div>
+
+            <h2 style="margin-top: 15px;">Leaderboard</h2>
+            <div id="leaderboard-stats"></div>
+            <button id="clear-data-btn" style="margin-top: 15px; background: #ed4245; width: 100%;">Clear All Data</button>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
