@@ -1,0 +1,60 @@
+body { background-color: #202225; color: #dcddde; font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; justify-content: center; padding: 30px; margin: 0; }
+.container { display: flex; gap: 30px; background: #2f3136; padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.6); }
+.sidebar { display: flex; flex-direction: column; gap: 8px; width: 280px; }
+.right-panel { width: 250px; }
+
+h2 { margin: 0; font-size: 18px; color: #fff; }
+
+.player-card { background: #18191c; padding: 15px; border-radius: 8px; border-left: 4px solid #faa61a; margin-bottom: 5px; }
+.player-card h3 { margin: 0 0 5px 0; font-size: 16px; }
+.player-card p { margin: 0; }
+
+select, button, input { padding: 8px; border-radius: 6px; border: none; font-size: 13px; outline: none; box-sizing: border-box; }
+select, input { background: #40444b; color: white; width: 100%; }
+button { background: #5865f2; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
+button:hover:not(:disabled) { filter: brightness(1.2); }
+button:disabled { background: #4f545c !important; cursor: not-allowed; opacity: 0.6; color: #aaa !important; }
+
+.button-group { display: flex; gap: 5px; }
+.button-group button { flex: 1; padding: 8px 4px;}
+
+.status-box { padding: 12px; background: #202225; border-radius: 6px; font-weight: bold; color: #43b581; text-align: center; }
+.chat-box { background: #202225; padding: 15px; border-radius: 6px; height: 130px; overflow-y: auto; border-left: 4px solid #5865f2; }
+.chat-messages p { margin: 4px 0; font-size: 13px; }
+
+/* Player Banners & Graveyard */
+.player-banner { display: flex; justify-content: space-between; align-items: center; background: #18191c; padding: 10px 15px; border-radius: 6px; margin-bottom: 5px; }
+.banner-info { display: flex; align-items: center; gap: 10px; }
+.clock { background: #2f3136; padding: 8px 15px; border-radius: 4px; font-size: 20px; font-weight: bold; font-family: monospace; color: #dcddde; }
+.clock.active { background: #43b581; color: white; }
+
+.graveyard { display: flex; gap: 2px; height: 20px; }
+.grave-piece { width: 20px; height: 20px; background-size: cover; opacity: 0.8; }
+.material-adv { font-weight: bold; color: #faa61a; font-size: 14px; margin-left: 5px; }
+
+/* Move History */
+#move-history-panel { background: #202225; height: 220px; overflow-y: auto; border-radius: 6px; padding: 10px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+th { color: #8e9297; border-bottom: 1px solid #40444b; padding-bottom: 5px; }
+td { padding: 5px 0; }
+
+.leaderboard { width: 250px; }
+.stat-row { display: flex; justify-content: space-between; padding: 8px; background: #40444b; margin-bottom: 5px; border-radius: 4px; font-size: 14px; }
+.stat-score { color: #faa61a; }
+.eval-stat { background: #202225; padding: 10px; border-radius: 6px; flex: 1; font-weight: bold; }
+#move-breakdown p { margin: 4px 0; padding-bottom: 4px; border-bottom: 1px solid #40444b; }
+
+/* Chessboard Visual Fixes */
+.legal-move { position: relative; }
+.legal-move::after { content: ''; position: absolute; width: 30%; height: 30%; background: rgba(0, 0, 0, 0.4); border-radius: 50%; top: 35%; left: 35%; pointer-events: none; }
+.in-check { box-shadow: inset 0 0 25px rgba(255, 0, 0, 0.9) !important; }
+
+/* Theme Overrides for Chessboard.js */
+.theme-green .white-1e1d7 { background-color: #eeeed2; color: #769656; }
+.theme-green .black-3c85d { background-color: #769656; color: #eeeed2; }
+
+.theme-wood .white-1e1d7 { background-color: #f0d9b5; color: #b58863; }
+.theme-wood .black-3c85d { background-color: #b58863; color: #f0d9b5; }
+
+.theme-midnight .white-1e1d7 { background-color: #ced4da; color: #495057; }
+.theme-midnight .black-3c85d { background-color: #495057; color: #ced4da; }
