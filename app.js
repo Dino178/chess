@@ -38,14 +38,14 @@ function addPersonalityBot(name, elo, pieceLetter) {
     }); 
 }
 
-addBot("Pam", 100);
+addBot("Paul", 200);
 addBot("Daniella", 550);
 addBot("Valerie", 800);
 addBot("Maria", 1200);
 addBot("Landon", 1800);
 addBot("Magnus", 2800);
-addPersonalityBot("Victoria", 1200, "p"); 
-addPersonalityBot("Paul", 700, "p");   // Pawn Lover
+addPersonalityBot("Victoria", 1200, "q"); 
+addPersonalityBot("Pam", 100, "p");   // Pawn Lover
 addPersonalityBot("Rocky", 1100, "r"); // Rook Lover
 addPersonalityBot("Chris", 200, "k"); // King Lover
 
