@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grandmaster Grid</title>
+    <title>Chess</title>
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -37,7 +37,7 @@
                 <option value="bot">Play vs Bot (Local)</option>
                 <option value="placement">Placement Match (Elo Test)</option>
                 <option value="pvp">2 Player (Local Pass & Play)</option>
-                <option value="online" disabled>Online Multiplayer (Coming Soon)</option>
+                <option value="online" disabled>Online Multiplayer</option>
             </select>
 
             <select id="time-control" style="margin-top: 5px;">
@@ -68,6 +68,7 @@
 
             <div id="admin-panel" style="display:none; margin-top: 10px; border: 1px solid #ed4245; padding: 10px; border-radius: 6px;">
                 <h3 style="color:#ed4245; margin:0 0 5px 0; font-size:14px;">Admin: Spawn Bot</h3>
+                <input type="number" id="admin-custom-elo" placeholder="Specific Elo (Optional)" style="margin-bottom: 5px; width: 100%;">
                 <button id="admin-spawn-btn" style="background: #ed4245; width: 100%; font-size: 12px;">Push Bot to Queue</button>
             </div>
 
