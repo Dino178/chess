@@ -1,15 +1,63 @@
 // ==========================================
-// 0. SYSTEM ERROR LOGGER
+// 0. FIREBASE SETUP & AUTHENTICATION
 // ==========================================
-window.onerror = function(msg, url, line) {
-    const dbg = document.getElementById('debug-log');
-    if (dbg) {
-        dbg.style.display = 'block';
-        document.getElementById('error-list').innerHTML += `<li>${msg} (Line: ${line})</li>`;
-    }
-    console.error("Error: " + msg + "\nLine: " + line);
-    return false;
+// TODO: Replace this config with your actual Firebase Project settings!
+const firebaseConfig = {
+    apiKey: "AIzaSyBNeg6-whOIiX4yWWPgffOZY6xm0wrvpu0",
+    authDomain: "chess-faac6.firebaseapp.com",
+    databaseURL: "https://chess-faac6-default-rtdb.firebaseio.com",
+    projectId: "chess-faac6",
+    storageBucket: "chess-faac6.firebasestorage.app",
+    messagingSenderId: "1:395409063256:web:617565e068905312e1f92d",
+    appId: "YOUR_APP_ID"
 };
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+let currentUser = null;
+let isAdmin = false;
+
+// Auth UI Logic
+document.getElementById('signup-btn').addEventListener('click', () => {
+    auth.createUserWithEmailAndPassword($('#email-input').val(), $('#password-input').val()).catch(e => alert(e.message));
+});
+document.getElementById('login-btn').addEventListener('click', () => {
+    auth.signInWithEmailAndPassword($('#email-input').val(), $('#password-input').val()).catch(e => alert(e.message));
+});
+document.getElementById('google-login-btn').addEventListener('click', () => {
+    auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e => alert(e.message));
+});
+
+auth.onAuthStateChanged(user => {
+    if (user) {
+        currentUser = user;
+        document.getElementById('auth-modal').style.display = 'none';
+        
+        // Setup Profile UI
+        isAdmin = (user.email === "landon.z.low@gmail.com"); // TODO: Set your actual admin email here
+        let badge = isAdmin ? `<span style="background:#ed4245; padding:2px 4px; border-radius:4px; font-size:10px;">ADMIN</span> ` : "";
+        document.getElementById('player-name-display').innerHTML = badge + (user.displayName || user.email.split('@')[0]);
+        if (isAdmin) document.getElementById('admin-panel').style.display = 'block';
+
+        db.ref('users/' + user.uid).update({ email: user.email, lastOnline: firebase.database.ServerValue.TIMESTAMP });
+        listenForFriends();
+    } else {
+        document.getElementById('auth-modal').style.display = 'block';
+    }
+});
+
+function listenForFriends() {
+    // Placeholder for friend requests sync
+    db.ref(`friend_requests/${currentUser.uid}`).on('child_added', snapshot => {
+        if(snapshot.val().status === 'pending' && confirm(`Accept friend request from ${snapshot.val().fromEmail}?`)) {
+            db.ref(`users/${currentUser.uid}/friends/${snapshot.key}`).set(true);
+            db.ref(`users/${snapshot.key}/friends/${currentUser.uid}`).set(true);
+            db.ref(`friend_requests/${currentUser.uid}/${snapshot.key}`).remove();
+        }
+    });
+}
 
 // ==========================================
 // 1. SOUND EFFECTS & BOT FACTORY
@@ -27,42 +75,46 @@ function playSound(type) {
 const allBots = [];
 function addBot(name, elo) { allBots.push({ id: 'bot_' + name.toLowerCase().replace(/[^a-z0-9]/g, ''), name: `${name} (Elo ${elo})`, elo: elo, type: 'ladder' }); }
 function addPersonalityBot(name, elo, pieceLetter) { 
-    // We added 'r', 'p', and 'k' to this list!
     let pieces = { 'q': 'Queen', 'n': 'Knight', 'b': 'Bishop', 'r': 'Rook', 'p': 'Pawn', 'k': 'King' }; 
-    allBots.push({ 
-        id: 'pers_' + name.toLowerCase().replace(/[^a-z0-9]/g, ''), 
-        name: `${name} (${pieces[pieceLetter] || 'Piece'} Lover)`, 
-        elo: elo, 
-        type: 'personality', 
-        fav: pieceLetter.toLowerCase() 
-    }); 
+    allBots.push({ id: 'pers_' + name.toLowerCase().replace(/[^a-z0-9]/g, ''), name: `${name} (${pieces[pieceLetter]} Lover)`, elo: elo, type: 'personality', fav: pieceLetter.toLowerCase() }); 
+}
+function addBehaviorBot(name, elo, styleType) {
+    let styles = { 'berserker': 'Berserker', 'pacifist': 'Pacifist', 'pusher': 'Pawn Pusher', 'turtle': 'Defensive Turtle', 'sniper': 'Long-Range Sniper', 'coward': 'Coward (Retreats)' };
+    allBots.push({ id: 'beh_' + name.toLowerCase(), name: `${name} - ${styles[styleType]}`, elo: elo, type: 'behavior', style: styleType }); 
 }
 
-addBot("Paul", 200);
-addBot("Daniella", 550);
-addBot("Valerie", 800);
-addBot("Soresmily", 1000);
+addBot("Timmy The Terrible", 100);
+addBot("Jimmy", 550);
+addBot("Nelson", 800);
 addBot("Maria", 1200);
-addBot("Landon", 1800);
+addBot("Viktor", 1800);
 addBot("Magnus", 2800);
+
 addPersonalityBot("Victoria", 1200, "q"); 
-addPersonalityBot("Pam", 100, "p");   // Pawn Lover
-addPersonalityBot("Rocky", 1100, "r"); // Rook Lover
-addPersonalityBot("Chris", 200, "k"); // King Lover
+addPersonalityBot("Lancelot", 1300, "n"); 
+addPersonalityBot("Arthur", 200, "k"); 
+
+addBehaviorBot("Grog", 1000, "berserker");
+addBehaviorBot("The Turtle", 900, "turtle"); 
+addBehaviorBot("The Sniper", 1400, "sniper");
 
 // ==========================================
 // 2. SYSTEM VARIABLES
 // ==========================================
 let board = null, game = null;
-let currentMode = 'bot', currentBot = null;
+let currentMode = 'bot', currentBot = null, matchId = null;
 let engine = null, analysisEngine = null;
 let gameActive = false, botThinking = false;
 let gameHistory = []; 
 let timeW = 600, timeB = 600, timerInterval = null;
-let selectedSquare = null; 
-let currentEngineMoves = []; // Stores Stockfish's Top 5 moves for bot logic
-let playerProfile = JSON.parse(localStorage.getItem('chessProfile')) || { elo: null, placementGames: 0, placementScore: 0 };
 
+// Premove & Click-to-Move Vars
+let selectedSquare = null; 
+let premoveData = null; 
+let myPlayerColor = 'w'; 
+
+let currentEngineMoves = []; 
+let playerProfile = JSON.parse(localStorage.getItem('chessProfile')) || { elo: null, placementGames: 0, placementScore: 0 };
 const PIECE_VALUES = { 'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0 };
 
 const config = {
@@ -100,7 +152,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('draw-btn').addEventListener('click', async () => { 
         if(!gameActive || currentMode === 'pvp') return;
         botChat("Let me evaluate the board...");
-        
         let score = await evaluatePositionAsync(game.fen());
         let botScore = game.turn() === 'b' ? score : -score; 
         
@@ -124,8 +175,16 @@ document.addEventListener('DOMContentLoaded', () => {
         
         board.position(game.fen());
         gameHistory = gameHistory.slice(0, slice);
-        rebuildMoveTable(); calculateMaterial();
+        rebuildMoveTable(); calculateMaterial(); updateEvalBar();
         clearHighlights(); highlightCheck(); updateStatus();
+    });
+
+    // Admin Bot Spawner
+    document.getElementById('admin-spawn-btn').addEventListener('click', () => {
+        if (!isAdmin) return;
+        let selectedBot = allBots.find(b => b.id === document.getElementById('bot-select').value);
+        db.ref('matchmaking').push({ uid: "BOT_" + Date.now(), displayName: "Guest_" + Math.floor(Math.random()*9999), elo: selectedBot.elo, isBot: true, botId: selectedBot.id, waiting: true });
+        botChat(`Spawned hidden bot (${selectedBot.elo} Elo) into the global multiplayer queue.`);
     });
 
     document.getElementById('clear-data-btn').addEventListener('click', () => { localStorage.clear(); location.reload(); });
@@ -146,24 +205,25 @@ function populateBotDropdown() {
 function loadEngine() { return fetch('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js').then(res => res.text()).then(code => new Worker(URL.createObjectURL(new Blob([code], {type: 'application/javascript'})))); }
 
 // ==========================================
-// 4. GAME FLOW & CLICK TO MOVE
+// 4. GAME FLOW & CLICK TO MOVE (WITH PREMOVES)
 // ==========================================
 function startGame(isCustomFen = false) {
     if(!isCustomFen) { game.reset(); board.start(); } else { board.position(game.fen()); }
     
-    gameActive = true; botThinking = false; selectedSquare = null;
+    gameActive = true; botThinking = false; selectedSquare = null; premoveData = null;
     gameHistory = [{fen: game.fen(), move: 'start', color: null}];
+    myPlayerColor = 'w'; // Default for local play
     
     ['resign-btn', 'draw-btn', 'undo-btn'].forEach(id => document.getElementById(id).disabled = false);
     document.getElementById('chat-messages').innerHTML = '';
     document.getElementById('analysis-panel').style.display = 'none';
     document.getElementById('move-tbody').innerHTML = '';
+    document.getElementById('eval-bar-fill').style.height = '50%';
     
     calculateMaterial();
     
     let startingTime = parseInt(document.getElementById('time-control').value);
-    timeW = startingTime; timeB = startingTime; 
-    clearInterval(timerInterval); 
+    timeW = startingTime; timeB = startingTime; clearInterval(timerInterval); 
     
     let clocks = document.querySelectorAll('.clock');
     if (startingTime > 0) {
@@ -191,7 +251,6 @@ function startGame(isCustomFen = false) {
     if(game.turn() === 'b' && currentMode !== 'pvp') { botThinking = true; setTimeout(triggerBot, 500); }
 }
 
-// FIXED: Bulletproof Click-to-Move
 function setupClickToMove() {
     $('#myBoard').on('mousedown', '.square-55d63, .piece-417db', function(e) {
         if (!gameActive || botThinking) return;
@@ -200,23 +259,48 @@ function setupClickToMove() {
         let square = target.hasClass('square-55d63') ? target.attr('data-square') : target.parent('.square-55d63').attr('data-square');
         if (!square) return;
 
+        let isMyTurn = (game.turn() === myPlayerColor) || currentMode === 'pvp';
+
+        // Premove / Opponent's Turn Logic
+        if (!isMyTurn) {
+            if (selectedSquare) {
+                premoveData = { from: selectedSquare, to: square, promotion: 'q' };
+                clearHighlights();
+                $('#myBoard .square-' + selectedSquare).addClass('premove-locked');
+                $('#myBoard .square-' + square).addClass('premove-locked');
+                selectedSquare = null;
+            } else {
+                let piece = game.get(square);
+                if (piece && piece.color === myPlayerColor) {
+                    clearHighlights(); selectedSquare = square;
+                    $('#myBoard .square-' + square).addClass('selected-square');
+                }
+            }
+            return;
+        }
+
+        // Normal Turn Logic
         if (selectedSquare) {
             let move = game.move({ from: selectedSquare, to: square, promotion: 'q' });
             if (move) {
                 board.position(game.fen());
                 clearHighlights(); selectedSquare = null;
                 handleMoveVisuals(move);
+                
+                // MULTIPLAYER FIREBASE SYNC HOOK:
+                // if (currentMode === 'online') db.ref('matches/' + matchId).update({ lastMove: move.san, fen: game.fen() });
+
                 if (currentMode !== 'pvp' && gameActive && game.turn() === 'b') { 
                     botThinking = true; document.getElementById('undo-btn').disabled = true; window.setTimeout(triggerBot, 250); 
                 }
             } else {
                 let piece = game.get(square);
-                if (piece && piece.color === game.turn()) highlightLegalMoves(square);
+                if (piece && (piece.color === game.turn() || currentMode === 'pvp')) highlightLegalMoves(square);
                 else { clearHighlights(); selectedSquare = null; }
             }
         } else {
             let piece = game.get(square);
-            if (piece && piece.color === game.turn()) highlightLegalMoves(square);
+            if (piece && (piece.color === game.turn() || currentMode === 'pvp')) highlightLegalMoves(square);
         }
     });
 }
@@ -227,8 +311,12 @@ function highlightLegalMoves(square) {
     game.moves({ square: square, verbose: true }).forEach(m => $('#myBoard .square-' + m.to).addClass('legal-move'));
 }
 
+// Drag functionality with Premove block
 function onDragStart(source, piece) {
     if (!gameActive || game.game_over() || botThinking) return false;
+    let isMyTurn = (game.turn() === myPlayerColor) || currentMode === 'pvp';
+    if (!isMyTurn) return false; // Force premoves to use clicks only
+    
     if (currentMode !== 'pvp' && piece.search(/^b/) !== -1) return false; 
     let moves = game.moves({ square: source, verbose: true });
     if (moves.length === 0) return false; 
@@ -252,10 +340,10 @@ function makeMoveOnBoard(moveStr) {
 function handleMoveVisuals(move) {
     if (game.in_checkmate() || game.game_over()) playSound('end'); else if (game.in_check()) playSound('check'); else if (move.captured) playSound('capture'); else playSound('move');
     recordMove(move.san, game.turn() === 'w' ? 'b' : 'w');
-    calculateMaterial(); updateStatus(); checkGameOver();
+    calculateMaterial(); updateStatus(); updateEvalBar(); checkGameOver();
 }
 
-function clearHighlights() { $('#myBoard .square-55d63').removeClass('legal-move in-check selected-square'); }
+function clearHighlights() { $('#myBoard .square-55d63').removeClass('legal-move in-check selected-square premove-locked'); }
 function highlightCheck() {
     if (game.in_check()) {
         let b = game.board(), col = game.turn();
@@ -272,7 +360,7 @@ function rebuildMoveTable() {
 }
 
 // ==========================================
-// 5. MATERIAL CALCULATOR
+// 5. MATERIAL & EVAL BAR
 // ==========================================
 function calculateMaterial() {
     let counts = { w: {p:0,n:0,b:0,r:0,q:0}, b: {p:0,n:0,b:0,r:0,q:0} };
@@ -290,17 +378,43 @@ function calculateMaterial() {
     document.getElementById('mat-w').innerText = diff > 0 ? `+${diff}` : ''; document.getElementById('mat-b').innerText = diff < 0 ? `+${Math.abs(diff)}` : '';
 }
 
+async function updateEvalBar() {
+    if (!analysisEngine || !gameActive) return;
+    let score = await evaluatePositionAsync(game.fen());
+    let cappedScore = Math.max(-1000, Math.min(1000, score));
+    let percentage = 50 + (cappedScore / 20); // +10.0 = 100%, -10.0 = 0%
+    if (game.turn() === 'b') percentage = 100 - percentage; // Normalize to White's perspective
+    document.getElementById('eval-bar-fill').style.height = percentage + '%';
+}
+
 // ==========================================
-// 6. BOT ENGINE (MultiPV Suboptimal Move Picker)
+// 6. BOT ENGINE (MultiPV & Custom Behaviors)
 // ==========================================
 function triggerBot() {
     if (!gameActive) return;
     if (!engine) return window.setTimeout(triggerBot, 500); 
 
     let possibleMoves = game.moves({ verbose: true });
+    
+    // Custom Playstyles
+    if (currentBot.type === 'behavior') {
+        if (currentBot.style === 'berserker') {
+            let caps = possibleMoves.filter(m => m.captured);
+            if (caps.length > 0 && Math.random() < 0.9) return executeBotMove(caps[Math.floor(Math.random() * caps.length)].san);
+        }
+        if (currentBot.style === 'turtle') {
+            let def = possibleMoves.filter(m => (game.turn() === 'w' ? m.to[1] <= '4' : m.to[1] >= '5'));
+            if (def.length > 0 && Math.random() < 0.8) return executeBotMove(def[Math.floor(Math.random() * def.length)].san);
+        }
+        if (currentBot.style === 'sniper') {
+            let snipes = possibleMoves.filter(m => (m.piece === 'b' || m.piece === 'r') && Math.abs(m.to.charCodeAt(0) - m.from.charCodeAt(0)) > 2);
+            if (snipes.length > 0 && Math.random() < 0.8) return executeBotMove(snipes[Math.floor(Math.random() * snipes.length)].san);
+        }
+    }
+
     if (currentBot.type === 'personality') {
         let favMoves = possibleMoves.filter(m => m.piece === currentBot.fav);
-        if (favMoves.length > 0 && Math.random() < 0.75) { botChat(`Behold my favorite piece!`); return makeMoveOnBoard(favMoves[Math.floor(Math.random() * favMoves.length)].san); }
+        if (favMoves.length > 0 && Math.random() < 0.75) { botChat(`Behold my favorite piece!`); return executeBotMove(favMoves[Math.floor(Math.random() * favMoves.length)].san); }
     }
 
     let elo = currentBot.elo;
@@ -308,11 +422,9 @@ function triggerBot() {
     let skillLevel = Math.max(0, Math.min(20, Math.floor((elo - 500) / 100)));
     let moveTime = Math.max(100, Math.min(3000, Math.floor(elo / 1.5)));
     
-    // MultiPV forces Stockfish to calculate multiple lines.
-    // A 100 Elo bot will ask for 5 lines so it can pick the absolute worst one.
     let multiPvCount = elo < 1000 ? 5 : 1;
     
-    currentEngineMoves = []; // Clear previous moves
+    currentEngineMoves = []; 
     engine.postMessage(`setoption name Skill Level value ${skillLevel}`);
     engine.postMessage(`setoption name MultiPV value ${multiPvCount}`);
     engine.postMessage('position fen ' + game.fen());
@@ -321,14 +433,9 @@ function triggerBot() {
 
 function handleEngineMessage(event) {
     let line = event.data;
-    
-    // Parse the multiple move options generated by MultiPV
     if (line.includes('info depth') && line.includes('multipv')) {
         let pvMatch = line.match(/multipv (\d+).* pv ([a-h][1-8][a-h][1-8][qrbn]?)/);
-        if (pvMatch) {
-            let rank = parseInt(pvMatch[1]) - 1; // 0-indexed
-            currentEngineMoves[rank] = pvMatch[2];
-        }
+        if (pvMatch) currentEngineMoves[parseInt(pvMatch[1]) - 1] = pvMatch[2];
     }
     
     if (line.startsWith('bestmove')) {
@@ -336,17 +443,18 @@ function handleEngineMessage(event) {
         let moveToPlay = bestMove;
         let elo = currentBot.elo;
         
-        // If the bot is low Elo, purposely pick a sub-optimal move from the MultiPV list
         if (elo < 1000 && currentEngineMoves.length > 1) {
-            // 100 Elo picks rank 4 (the 5th best move). 900 Elo picks rank 0 (the best move).
             let targetIndex = Math.floor((1000 - elo) / 200); 
             targetIndex = Math.min(targetIndex, currentEngineMoves.length - 1);
             if (currentEngineMoves[targetIndex]) moveToPlay = currentEngineMoves[targetIndex];
         }
-
-        let delay = Math.floor(Math.random() * 1000) + 500; 
-        setTimeout(() => makeMoveOnBoard(moveToPlay), delay);
+        executeBotMove(moveToPlay);
     }
+}
+
+function executeBotMove(san) {
+    let delay = Math.floor(Math.random() * 1000) + 500; 
+    setTimeout(() => makeMoveOnBoard(san), delay);
 }
 
 // ==========================================
@@ -385,7 +493,7 @@ function endGame(result, msg) {
         if (!d[currentBot.id]) d[currentBot.id] = { wins: 0, losses: 0, draws: 0, name: currentBot.name };
         if (result === 'win') d[currentBot.id].wins++;
         else if (result === 'loss') d[currentBot.id].losses++;
-        else d[currentBot.id].draws++; // ADDED: Native Draw Tracking
+        else d[currentBot.id].draws++; 
         localStorage.setItem('chessLeaderboard', JSON.stringify(d)); updateLeaderboardUI();
     }
     if(analysisEngine) runGameAnalysis();
@@ -397,12 +505,11 @@ function updateProfileUI() { document.getElementById('player-elo-display').inner
 function updateLeaderboardUI() { 
     let lb = document.getElementById('leaderboard-stats'); lb.innerHTML = ''; 
     let d = JSON.parse(localStorage.getItem('chessLeaderboard')) || {}; 
-    // UPDATED UI: Now displays draws
     for (let [id, s] of Object.entries(d)) lb.innerHTML += `<div class="stat-row"><span class="stat-name">${s.name}</span><span class="stat-score">${s.wins}W - ${s.losses}L - ${s.draws || 0}D</span></div>`; 
 }
 
 // ==========================================
-// 8. ASYNC ANALYSIS (Perspective Fixed)
+// 8. ASYNC ANALYSIS (10-Tier Capable)
 // ==========================================
 function evaluatePositionAsync(fen) {
     return new Promise(res => {
@@ -412,7 +519,7 @@ function evaluatePositionAsync(fen) {
             if (e.data.includes('bestmove')) { analysisEngine.removeEventListener('message', listener); res(score); }
         };
         analysisEngine.addEventListener('message', listener);
-        analysisEngine.postMessage('position fen ' + fen); analysisEngine.postMessage('go depth 12'); // Increased depth for accuracy
+        analysisEngine.postMessage('position fen ' + fen); analysisEngine.postMessage('go depth 12'); 
     });
 }
 
@@ -425,11 +532,8 @@ async function runGameAnalysis() {
         pEl.innerText = `(${i}/${gameHistory.length - 1})`;
         let move = gameHistory[i];
         let raw = await evaluatePositionAsync(move.fen);
-        
-        // FIXED PERSPECTIVE: Stockfish evaluates from the view of the player WHOSE TURN IT IS NEXT.
         let isWhiteNext = move.fen.includes(' w ');
         let evalForWhite = isWhiteNext ? raw : -raw; 
-        
         let diff = evalForWhite - prev;
         
         if (move.color === 'w') {
@@ -439,6 +543,11 @@ async function runGameAnalysis() {
             else if (diff > 150 && evalForWhite > 0) { tag = "Brilliant !!"; col = "#1abc9c"; stats.brilliant++; }
             else if (diff > 50) { tag = "Great !"; col = "#3498db"; stats.great++; }
             if (tag) bEl.innerHTML += `<p><strong style="color:${col}">${tag}</strong> on move ${move.move}</p>`;
+            
+            // Community Puzzle Push (If Firebase is active)
+            if (tag === "Blunder ??" && db && currentUser) {
+                db.ref('community_puzzles').push({ fen: gameHistory[i-1].fen, blunder: move.move, elo: playerProfile.elo });
+            }
         }
         prev = evalForWhite;
     }
