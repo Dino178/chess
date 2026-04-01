@@ -6,7 +6,7 @@ body { background-color: #202225; color: #dcddde; font-family: 'Segoe UI', Tahom
 h2 { margin: 0; font-size: 18px; color: #fff; }
 
 .modal { position:fixed; top:20%; left:50%; transform:translate(-50%, 0); background:#2f3136; padding:30px; border-radius:12px; z-index:100; box-shadow:0 10px 30px rgba(0,0,0,0.8); text-align:center; width: 300px; }
-.modal input { width:100%; margin-bottom:10px; padding:10px; background:#40444b; color:#fff; border:none; border-radius:4px; outline:none; }
+.modal input { width:100%; margin-bottom:10px; padding:10px; background:#40444b; color:#fff; border:none; border-radius:4px; outline:none; box-sizing: border-box; }
 
 .player-card { background: #18191c; padding: 15px; border-radius: 8px; border-left: 4px solid #faa61a; margin-bottom: 5px; }
 .player-card h3 { margin: 0 0 5px 0; font-size: 16px; }
@@ -61,37 +61,7 @@ td { padding: 5px 0; }
 .theme-green .white-1e1d7 { background-color: #eeeed2; color: #769656; } .theme-green .black-3c85d { background-color: #769656; color: #eeeed2; }
 .theme-wood .white-1e1d7 { background-color: #f0d9b5; color: #b58863; } .theme-wood .black-3c85d { background-color: #b58863; color: #f0d9b5; }
 .theme-midnight .white-1e1d7 { background-color: #ced4da; color: #495057; } .theme-midnight .black-3c85d { background-color: #495057; color: #ced4da; }
-/* Admin Panel Styling */
-#admin-panel {
-    background: rgba(237, 66, 69, 0.1);
-    border: 1px solid #ed4245;
-    padding: 12px;
-    border-radius: 6px;
-    margin-top: 10px;
-}
-#admin-panel h3 {
-    color: #ed4245;
-    margin: 0 0 8px 0;
-    font-size: 14px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
 
-/* Future-Proofing: Friend List UI */
-.friend-list-item {
-    display: flex;
-    justify-content: space-between;
-    background: #40444b;
-    padding: 8px;
-    margin-bottom: 5px;
-    border-radius: 4px;
-    font-size: 13px;
-}
-.friend-status {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: #43b581; /* Green for online */
-    display: inline-block;
-    margin-right: 5px;
-}
+/* Admin Panel Styling */
+#admin-panel { background: rgba(237, 66, 69, 0.1); border: 1px solid #ed4245; padding: 12px; border-radius: 6px; margin-top: 10px; }
+#admin-panel h3 { color: #ed4245; margin: 0 0 8px 0; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
