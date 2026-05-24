@@ -77,7 +77,7 @@ addBot("Emma", 1100); addBot("Maria", 1200); addBot("Lucas", 1300); addBot("Soph
 addBot("Elena", 1600); addBot("Oliver", 1700); addBot("Viktor", 1800); addBot("Isabella", 1900); addBot("Liam", 2000);
 addBot("Mateo", 2200); addBot("Yuki", 2400); addBot("Hikaru", 2600); addBot("Magnus", 2800); addBot("Stockfish", 3200);
 
-addPersonalityBot("Paul", 600, "p"); addPersonalityBot("Arthur", 200, "k"); addPersonalityBot("Rocky", 1000, "r");
+addPersonalityBot("Pam", 100, "p"); addPersonalityBot("Arthur", 200, "k"); addPersonalityBot("Rocky", 1000, "r");
 addPersonalityBot("Benedict", 1100, "b"); addPersonalityBot("Victoria", 1200, "q"); addPersonalityBot("Lancelot", 1300, "n");
 
 addBehaviorBot("Grog", 800, "berserker"); addBehaviorBot("Gandhi", 900, "pacifist"); addBehaviorBot("Wallace", 1000, "pusher");
