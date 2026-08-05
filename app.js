@@ -71,7 +71,7 @@ function addBehaviorBot(name, elo, styleType) {
 }
 
 // THE 30+ BOT ROSTER
-addBot("Timmy", 100); addBot("Tommy", 200); addBot("Sally", 300); addBot("Jimmy", 400); addBot("Bobby", 500); 
+addBot("Zach", 100); addBot("Martin", 200); addBot("Sally", 300); addBot("Jimmy", 400); addBot("Bobby", 500); 
 addBot("Sarah", 600); addBot("Mike", 700); addBot("Nelson", 800); addBot("Chloe", 900); addBot("David", 1000);
 addBot("Emma", 1100); addBot("Maria", 1200); addBot("Lucas", 1300); addBot("Sophia", 1400); addBot("Jack", 1500);
 addBot("Elena", 1600); addBot("Oliver", 1700); addBot("Viktor", 1800); addBot("Isabella", 1900); addBot("Liam", 2000);
@@ -80,7 +80,7 @@ addBot("Mateo", 2200); addBot("Yuki", 2400); addBot("Hikaru", 2600); addBot("Mag
 addPersonalityBot("Pam", 100, "p"); addPersonalityBot("Arthur", 200, "k"); addPersonalityBot("Rocky", 1000, "r");
 addPersonalityBot("Benedict", 1100, "b"); addPersonalityBot("Victoria", 1200, "q"); addPersonalityBot("Lancelot", 1300, "n");
 
-addBehaviorBot("Grog", 800, "berserker"); addBehaviorBot("Gandhi", 900, "pacifist"); addBehaviorBot("Wallace", 1000, "pusher");
+addBehaviorBot("Grog", 800, "berserker"); addBehaviorBot("Gandhi", 900, "pacifist"); addBehaviorBot("Pam", 100, "pusher");
 addBehaviorBot("The Turtle", 1100, "turtle"); addBehaviorBot("The Sniper", 1400, "sniper"); addBehaviorBot("Sir Robin", 950, "coward");
 
 // ==========================================
