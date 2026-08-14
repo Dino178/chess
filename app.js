@@ -3,14 +3,8 @@
 // ==========================================
 // TODO: Replace this with your actual Firebase config!
 const firebaseConfig = {
-    apiKey: "AIzaSyBNeg6-whOIiX4yWWPgffOZY6xm0wrvpu0",
-    authDomain: "chess-faac6.firebaseapp.com",
-    databaseURL: "https://chess-faac6-default-rtdb.firebaseio.com",
-    projectId: "chess-faac6",
-    storageBucket: "chess-faac6.firebasestorage.app",
-    messagingSenderId: "395409063256",
-    appId: "1:395409063256:web:617565e068905312e1f92d"
-};
+
+}; 
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
