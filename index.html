@@ -3,22 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Master Chess - AI, DNA & Analysis</title>
+    <title>Classroom Portal - Google Docs / Assignments</title>
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="theme-wood">
-    <!-- Auth Modal -->
+
+    <!-- Stealth Schoolwork Camouflage Overlay -->
+    <div id="schoolwork-overlay" class="school-overlay" style="display:none;">
+        <div class="school-nav">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span style="font-size:22px;">📚</span>
+                <h3 style="margin:0; font-family:sans-serif; color:#202124;">Biology II: Assignment 4 - Cellular Respiration & Genetics</h3>
+            </div>
+            <button id="exit-schoolwork-btn" class="school-btn">Return to App</button>
+        </div>
+        <div class="school-content">
+            <h2>Unit 3: Energy Transfer and Biochemical Pathways</h2>
+            <p><strong>Instructions:</strong> Read through the following module summary before answering the diagnostic problems below.</p>
+            <div class="fake-text-box">
+                <p>1. Glycolysis occurs in the cytoplasm and breaks down glucose into pyruvate, yielding a net 2 ATP and 2 NADH molecules.</p>
+                <p>2. The Krebs Cycle occurs within the mitochondrial matrix, processing Acetyl-CoA through oxidative phosphorylation.</p>
+                <p>3. Note: Ensure citations follow standard academic APA format before turn-in date.</p>
+            </div>
+            <textarea placeholder="Type assignment notes or answers here..." style="width:100%; height:200px; padding:10px; border-radius:6px; border:1px solid #ccc; font-family:sans-serif; box-sizing:border-box;"></textarea>
+        </div>
+    </div>
+
+    <!-- Auth & Guest Modal -->
     <div id="auth-modal" class="modal">
-        <h2 style="margin-top:0;">Sign In to Play</h2>
-        <input type="email" id="email-input" placeholder="Email">
+        <h2 style="margin-top:0;">Sign In or Play as Guest</h2>
+        <input type="text" id="username-input" placeholder="Display Username" style="margin-bottom:8px;">
+        <input type="email" id="email-input" placeholder="Email (Optional for Firebase)">
         <input type="password" id="password-input" placeholder="Password">
-        <div style="display:flex; gap:10px; margin-bottom:15px;">
+        <div style="display:flex; gap:10px; margin-top:10px; margin-bottom:10px;">
             <button id="login-btn" style="flex:1; background:#43b581;">Login</button>
             <button id="signup-btn" style="flex:1; background:#5865f2;">Sign Up</button>
         </div>
+        <button id="guest-btn" style="width:100%; background:#faa61a; color:#000; font-weight:bold; margin-bottom:8px;">Continue as Guest (Saved Locally)</button>
+        <button id="google-login-btn" style="width:100%; background:#fff; color:#000;">Sign in with Google</button>
+    </div>
+
+    <!-- Host / Join Custom Room Modal -->
+    <div id="custom-room-modal" class="modal" style="display:none; width:340px;">
+        <h2>Host / Join Match</h2>
+        <div style="margin-bottom: 12px;">
+            <button id="create-room-btn" style="width:100%; background:#43b581;">Host Game (Get Code)</button>
+            <div id="room-code-display" style="display:none; margin-top:8px; padding:8px; background:#18191c; border-radius:4px; font-weight:bold; font-family:monospace; font-size:18px; color:#faa61a; text-align:center;"></div>
+        </div>
         <hr style="border-color:#40444b;">
-        <button id="google-login-btn" style="width:100%; background:#fff; color:#000; margin-top:10px;">Sign in with Google</button>
+        <div style="margin-top: 10px;">
+            <input type="text" id="join-room-code" placeholder="Enter 6-digit Game Code" style="text-align:center; font-family:monospace; text-transform:uppercase; font-size:16px;">
+            <button id="join-room-btn" style="width:100%; margin-top:5px; background:#5865f2;">Join Match</button>
+        </div>
+        <button onclick="document.getElementById('custom-room-modal').style.display='none'" style="width:100%; margin-top:10px; background:#4f545c;">Close</button>
     </div>
 
     <!-- Player DNA Modal -->
@@ -53,19 +91,25 @@
         <!-- Left Sidebar -->
         <div class="sidebar">
             <div class="player-card">
-                <h3 id="player-name-display">Guest</h3>
-                <p>Calculated Elo: <span id="player-elo-display" style="color:#faa61a; font-weight:bold;">Unranked</span></p>
-                <p id="placement-warning" style="font-size: 12px; color: #ed4245;">Play Placement Mode to calibrate your rating!</p>
-                <button id="open-dna-btn" style="margin-top:8px; width:100%; font-size:12px; background:#7289da;">🧬 View My Player DNA</button>
+                <h3 id="player-name-display">Guest Player</h3>
+                <p>Calculated Elo: <span id="player-elo-display" style="color:#faa61a; font-weight:bold;">1200</span></p>
+                <div style="display:flex; gap:5px; margin-top:8px;">
+                    <button id="edit-username-btn" style="font-size:11px; padding:4px 6px; background:#4f545c;">Edit Name</button>
+                    <button id="open-dna-btn" style="font-size:11px; padding:4px 6px; background:#7289da;">Player DNA</button>
+                </div>
             </div>
+
+            <!-- Camouflage Button -->
+            <button id="toggle-schoolwork-btn" style="background:#3498db; color:#fff; font-size:12px; margin-top:2px;">📖 Classwork Mode</button>
 
             <h2>Match Setup</h2>
             <select id="game-mode">
-                <option value="bot">Play vs Bot (Local)</option>
-                <option value="clone">Play vs Player Clone (DNA)</option>
-                <option value="placement">Placement Match (Adaptive RLI Test)</option>
+                <option value="bot">Play vs Bot (Singleplayer)</option>
+                <option value="clone">Play vs My Player Clone (DNA)</option>
+                <option value="custom_code">Host / Join with Game Code</option>
+                <option value="placement">Placement Match (Elo Calibration)</option>
                 <option value="pvp">2 Player (Local Pass & Play)</option>
-                <option value="online" disabled>Online Multiplayer</option>
+                <option value="online">Online Matchmaking Queue</option>
             </select>
 
             <select id="time-control" style="margin-top: 5px;">
@@ -82,11 +126,10 @@
 
             <div id="placement-panel" style="display:none; background:#202225; padding:8px; border-radius:6px; margin-top:5px;">
                 <div style="font-size:12px; color:#faa61a;">Placement Progress: <span id="placement-progress">Match 1 of 5</span></div>
-                <div style="font-size:11px; color:#8e9297;">Testing against calibrated benchmarks.</div>
             </div>
 
             <div class="button-group" style="margin-top: 10px;">
-                <button id="start-btn" style="background: #43b581;">Start Game</button>
+                <button id="start-btn" style="background: #43b581;">Start Match</button>
             </div>
             <div class="button-group" style="margin-top: 5px;">
                 <button id="resign-btn" disabled>Resign</button>
@@ -94,11 +137,11 @@
                 <button id="undo-btn" style="background: #f1c40f; color: #000;" disabled>⟲ Undo</button>
             </div>
             
-            <div class="status-box" style="margin-top: 10px;">
+            <div class="status-box" style="margin-top: 8px;">
                 <span id="status">Waiting to start...</span>
             </div>
 
-            <div class="chat-box" id="chat-box" style="margin-top: 10px;">
+            <div class="chat-box" id="chat-box" style="margin-top: 8px;">
                 <div id="chat-messages"><p><em>Select your game setup and begin.</em></p></div>
             </div>
         </div>
@@ -108,6 +151,7 @@
             <div class="player-banner">
                 <div class="banner-info">
                     <strong id="black-name">Opponent</strong>
+                    <span id="black-elo" style="color:#faa61a; font-size:12px;">(Elo 1200)</span>
                     <div class="graveyard" id="grave-b"></div>
                     <span class="material-adv" id="mat-b"></span>
                 </div>
@@ -124,20 +168,20 @@
             <div class="player-banner" style="margin-top: 5px;">
                 <div class="banner-info">
                     <strong id="white-name">You</strong>
+                    <span id="white-elo" style="color:#faa61a; font-size:12px;">(Elo 1200)</span>
                     <div class="graveyard" id="grave-w"></div>
                     <span class="material-adv" id="mat-w"></span>
                 </div>
                 <div class="clock" id="timer-w">10:00</div>
             </div>
             
-            <!-- Chess.com Style Game Review Analysis Panel -->
+            <!-- Chess.com Style Game Review Card -->
             <div id="analysis-panel" style="display: none;" class="game-review-card">
                 <div class="review-header">
                     <div>
                         <h3 style="margin:0; color:#fff;">Game Review</h3>
                         <span id="analysis-status" style="font-size:12px; color:#8e9297;">Analyzing moves...</span>
                     </div>
-                    <button id="download-pgn" style="font-size: 12px; padding: 5px 10px; width: auto; background:#4f545c;">Download PGN</button>
                 </div>
 
                 <div class="accuracy-summary">
@@ -169,22 +213,16 @@
             </div>
         </div>
 
-        <!-- Right Panel -->
+        <!-- Right Panel: Friends & History -->
         <div class="sidebar right-panel">
-            <h2>Customization</h2>
-            <select id="board-theme">
-                <option value="theme-wood">Classic Wood</option>
-                <option value="theme-green">Tournament Green</option>
-                <option value="theme-midnight">Midnight Blue</option>
-            </select>
-
-            <div style="margin-top: 10px; background: #202225; padding: 10px; border-radius: 6px;">
-                <label style="font-size: 12px; color: #8e9297;">Custom FEN (Sandbox):</label>
-                <input type="text" id="fen-input" placeholder="Paste FEN...">
-                <button id="load-fen-btn" style="background: #4f545c; margin-top: 5px; width: 100%;">Load FEN</button>
+            <h2>Friends List</h2>
+            <div style="display:flex; gap:4px;">
+                <input type="text" id="friend-name-input" placeholder="Friend username...">
+                <button id="add-friend-btn" style="padding:6px; background:#43b581;">Add</button>
             </div>
+            <div id="friends-list-container" style="max-height:90px; overflow-y:auto; background:#18191c; border-radius:6px; padding:5px; margin-top:5px;"></div>
 
-            <h2 style="margin-top: 15px;">Move History</h2>
+            <h2 style="margin-top: 10px;">Move History</h2>
             <div id="move-history-panel">
                 <table id="move-table">
                     <thead><tr><th>#</th><th>White</th><th>Black</th></tr></thead>
@@ -192,13 +230,13 @@
                 </table>
             </div>
 
-            <h2 style="margin-top: 15px;">Leaderboard</h2>
+            <h2 style="margin-top: 10px;">Leaderboard & Stats</h2>
             <div id="leaderboard-stats"></div>
-            <button id="clear-data-btn" style="margin-top: 15px; background: #ed4245; width: 100%;">Reset Profile & DNA</button>
+            <button id="clear-data-btn" style="margin-top: 10px; background: #ed4245; width: 100%; font-size:11px;">Reset Local Data</button>
         </div>
     </div>
 
-    <!-- Libraries -->
+    <!-- Scripts -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
