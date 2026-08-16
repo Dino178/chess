@@ -236,9 +236,9 @@ const DEFAULT_DNA = {
     checkReaction: 50,
     endgameSkill: 50,
     calculatedElo: 1200,
-    openings: {}, // Tracks frequency of first 10 moves
-    exactPositionMemory: {}, // FEN -> { san: count }
-    blunderMemory: [] // Patterns player historically avoids
+    openings: {},
+    exactPositionMemory: {},
+    blunderMemory: []
 };
 
 let playerDNA = Object.assign({}, DEFAULT_DNA, JSON.parse(localStorage.getItem('chessPlayerDNA')) || {});
@@ -271,7 +271,6 @@ function analyzeGameForDeepDNA(history, playerColor) {
         totalCpLoss += cpLoss;
         let posEval = m.evalBefore || 0;
 
-        // Remember exact positions & repeated moves
         let simpleFen = m.fen.split(' ').slice(0, 4).join(' ');
         if (!playerDNA.exactPositionMemory[simpleFen]) {
             playerDNA.exactPositionMemory[simpleFen] = {};
@@ -307,7 +306,6 @@ function analyzeGameForDeepDNA(history, playerColor) {
     let matchACPL = totalCpLoss / userMoves.length;
     playerDNA.gamesPlayed++;
     
-    // Exponential Moving Average (Adapts quickly as player improves)
     playerDNA.acpl = Math.round((playerDNA.acpl * 0.65) + (matchACPL * 0.35));
 
     if (aheadMoves > 0) {
@@ -335,7 +333,6 @@ function getCloneBotMove(moves) {
     let target = activeCloneDNA || playerDNA;
     let simpleFen = game.fen().split(' ').slice(0, 4).join(' ');
 
-    // 1. Exact Memory: If player has encountered this exact board state, replay their move
     if (target.exactPositionMemory && target.exactPositionMemory[simpleFen]) {
         let options = target.exactPositionMemory[simpleFen];
         let bestSan = null;
@@ -351,7 +348,6 @@ function getCloneBotMove(moves) {
         }
     }
 
-    // 2. Tactical Evasion: Avoid hanging pieces if tactical rating > 60
     if (target.tactics > 60) {
         let safeMoves = moves.filter(function(m) {
             let tempGame = new Chess(game.fen());
@@ -367,7 +363,6 @@ function getCloneBotMove(moves) {
         }
     }
 
-    // 3. Situational Tendency Matching
     if (Math.random() * 100 < target.aggression) {
         let aggressive = moves.filter(function(m) { return m.captured || m.san.indexOf('+') !== -1; });
         if (aggressive.length > 0) {
@@ -375,11 +370,11 @@ function getCloneBotMove(moves) {
         }
     }
 
-    return null; // Fallback to engine calculation calibrated to player's Elo
+    return null;
 }
 
 // =================================================================
-// 4. CHESS.COM CAPS2 ACCURACY & ACCURATE BOT RATING PRESERVATION
+// 4. CHESS.COM CAPS2 ACCURACY & PERFORMANCE FORMULAS
 // =================================================================
 function cpToWinProb(cp) {
     return 1 / (1 + Math.pow(10, -cp / 400));
@@ -420,6 +415,29 @@ function classifyMove(diffCp, winDiff, isSacrifice) {
         return { tag: "Miss", sym: "✖", key: "miss", color: "#ea5b5b" };
     }
     return { tag: "Blunder", sym: "??", key: "blunder", color: "#fa412d" };
+}
+
+function calculateACPLToPerformance(acpl, oppElo, outcome) {
+    let qualityElo = 0;
+    if (acpl <= 15) {
+        qualityElo = 2600 - (acpl * 15);
+    } else if (acpl <= 35) {
+        qualityElo = 2200 - ((acpl - 15) * 20);
+    } else if (acpl <= 65) {
+        qualityElo = 1700 - ((acpl - 35) * 18);
+    } else if (acpl <= 110) {
+        qualityElo = 1100 - ((acpl - 65) * 10);
+    } else if (acpl <= 170) {
+        qualityElo = 650 - ((acpl - 110) * 5);
+    } else {
+        qualityElo = Math.max(100, 350 - ((acpl - 170) * 2));
+    }
+
+    let resultBonus = outcome === 1 ? 300 : outcome === 0.5 ? 0 : -300;
+    let expectedVersusOpponent = oppElo + resultBonus;
+
+    let finalPerformance = Math.round((qualityElo * 0.50) + (expectedVersusOpponent * 0.50));
+    return Math.max(100, Math.min(3100, finalPerformance));
 }
 
 function evaluatePositionAsync(fen, depth, timeoutMs) {
@@ -521,7 +539,6 @@ document.addEventListener('DOMContentLoaded', function() {
         analysisEngine = w;
     });
 
-    // Classroom Stealth Handlers
     document.getElementById('open-app-from-school-btn').addEventListener('click', function() {
         document.getElementById('schoolwork-overlay').style.display = 'none';
     });
@@ -529,7 +546,6 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('schoolwork-overlay').style.display = 'block';
     });
 
-    // Guest & Name Handlers
     document.getElementById('guest-btn').addEventListener('click', function() {
         let customName = document.getElementById('username-input').value.trim();
         if (customName) {
@@ -547,7 +563,64 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Match Setup & Mode Selection
+    if (auth) {
+        document.getElementById('login-btn').addEventListener('click', function() {
+            let email = document.getElementById('email-input').value.trim();
+            let password = document.getElementById('password-input').value.trim();
+            auth.signInWithEmailAndPassword(email, password)
+                .then(function(res) {
+                    guestProfile.username = res.user.displayName || res.user.email.split('@')[0];
+                    saveGuestAndDNA();
+                    document.getElementById('auth-modal').style.display = 'none';
+                })
+                .catch(function(err) {
+                    alert("Login failed: " + err.message);
+                });
+        });
+
+        document.getElementById('signup-btn').addEventListener('click', function() {
+            let email = document.getElementById('email-input').value.trim();
+            let password = document.getElementById('password-input').value.trim();
+            auth.createUserWithEmailAndPassword(email, password)
+                .then(function(res) {
+                    let customName = document.getElementById('username-input').value.trim();
+                    if (customName) {
+                        res.user.updateProfile({ displayName: customName });
+                        guestProfile.username = customName;
+                    } else {
+                        guestProfile.username = res.user.email.split('@')[0];
+                    }
+                    saveGuestAndDNA();
+                    document.getElementById('auth-modal').style.display = 'none';
+                })
+                .catch(function(err) {
+                    alert("Sign up failed: " + err.message);
+                });
+        });
+
+        document.getElementById('google-login-btn').addEventListener('click', function() {
+            let provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider)
+                .then(function(res) {
+                    guestProfile.username = res.user.displayName || res.user.email.split('@')[0];
+                    saveGuestAndDNA();
+                    document.getElementById('auth-modal').style.display = 'none';
+                })
+                .catch(function(err) {
+                    alert("Google Sign-In failed: " + err.message);
+                });
+        });
+
+        auth.onAuthStateChanged(function(user) {
+            if (user) {
+                currentUser = user;
+                guestProfile.username = user.displayName || user.email.split('@')[0];
+                saveGuestAndDNA();
+                document.getElementById('auth-modal').style.display = 'none';
+            }
+        });
+    }
+
     document.getElementById('game-mode').addEventListener('change', function(e) {
         currentMode = e.target.value;
         document.getElementById('bot-settings').style.display = (currentMode === 'bot') ? 'block' : 'none';
@@ -607,9 +680,8 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.className = e.target.value;
     });
 
-    // COMPLETE WIPE / RESET FEATURE
     document.getElementById('clear-data-btn').addEventListener('click', function() {
-        if (confirm("⚠️ WIPE ALL DATA: This will reset your profile, DNA learning memory, calculated Elo, and game history. Proceed?")) {
+        if (confirm("WIPE ALL DATA: This will reset your profile, DNA learning memory, calculated Elo, and game history. Proceed?")) {
             localStorage.removeItem('chessGuestProfile');
             localStorage.removeItem('chessPlayerDNA');
             guestProfile = {
@@ -665,7 +737,7 @@ function loadEngine() {
 }
 
 // =================================================================
-// 6. ORIGINAL MULTIPV CANDIDATE SELECTION FOR BOT ELO
+// 6. MULTIPV CANDIDATE SELECTION FOR REAL BOT RATINGS
 // =================================================================
 function triggerBot() {
     if (!gameActive || !engine) {
@@ -1060,7 +1132,7 @@ function endGame(result, msg) {
         saveGuestAndDNA();
     }
     if (analysisEngine) {
-        runChessComAnalysis();
+        runChessComAnalysis(result);
     }
 }
 
@@ -1129,37 +1201,34 @@ function calculateMaterial() {
 }
 
 // =================================================================
-// 8. ACCURATE CAPS2 REVIEW PIPELINE & PRESERVED BOT RATINGS
+// 8. AUTHENTIC TOURNAMENT PERFORMANCE RATING & CAPS2 ACCURACY
 // =================================================================
-async function runChessComAnalysis() {
+async function runChessComAnalysis(gameResult) {
     document.getElementById('analysis-panel').style.display = 'block';
     let bEl = document.getElementById('move-breakdown');
     bEl.innerHTML = '';
+    
     let counts = {
-        brilliant: 0,
-        great: 0,
-        best: 0,
-        excellent: 0,
-        good: 0,
-        inaccuracy: 0,
-        mistake: 0,
-        miss: 0,
-        blunder: 0
+        brilliant: 0, great: 0, best: 0, excellent: 0, good: 0,
+        inaccuracy: 0, mistake: 0, miss: 0, blunder: 0
     };
+    
     let accuracyTotals = { w: [], b: [] };
+    let cpLossTotals = { w: 0, b: 0 };
+    let moveCounts = { w: 0, b: 0 };
     let prevEval = 0;
 
     for (let i = 1; i < gameHistory.length; i++) {
         let item = gameHistory[i];
         let evalForMove = await evaluatePositionAsync(item.fen, 8, 1200);
-        let diffCp = 0;
-        if (item.color === 'w') {
-            diffCp = evalForMove - prevEval;
-        } else {
-            diffCp = prevEval - evalForMove;
-        }
-        item.cpLoss = Math.max(0, -diffCp);
+        
+        let diffCp = item.color === 'w' ? (evalForMove - prevEval) : (prevEval - evalForMove);
+        let cpLoss = Math.max(0, -diffCp);
+        item.cpLoss = cpLoss;
         item.evalBefore = prevEval;
+
+        cpLossTotals[item.color] += Math.min(500, cpLoss);
+        moveCounts[item.color]++;
 
         let evalPrevRel = item.color === 'w' ? prevEval : -prevEval;
         let evalCurRel = item.color === 'w' ? evalForMove : -evalForMove;
@@ -1177,25 +1246,25 @@ async function runChessComAnalysis() {
         prevEval = evalForMove;
     }
 
-    let accW = 75;
-    if (accuracyTotals.w.length > 0) {
-        let sumW = accuracyTotals.w.reduce(function(a, b) { return a + b; }, 0);
-        accW = Math.round(sumW / accuracyTotals.w.length);
-    }
-    let accB = 75;
-    if (accuracyTotals.b.length > 0) {
-        let sumB = accuracyTotals.b.reduce(function(a, b) { return a + b; }, 0);
-        accB = Math.round(sumB / accuracyTotals.b.length);
-    }
+    let acplW = moveCounts.w > 0 ? (cpLossTotals.w / moveCounts.w) : 60;
+    let acplB = moveCounts.b > 0 ? (cpLossTotals.b / moveCounts.b) : 60;
 
-    // Preserve the exact Elo of the Bot and player
-    let botEloDisplay = currentBot ? currentBot.elo : 1200;
-    let playerEloDisplay = playerDNA.calculatedElo;
+    let accW = accuracyTotals.w.length > 0 ? Math.round(accuracyTotals.w.reduce(function(a, b) { return a + b; }, 0) / accuracyTotals.w.length) : 70;
+    let accB = accuracyTotals.b.length > 0 ? Math.round(accuracyTotals.b.reduce(function(a, b) { return a + b; }, 0) / accuracyTotals.b.length) : 70;
+
+    let knownPlayerElo = playerDNA.calculatedElo || 1200;
+    let knownBotElo = currentBot ? currentBot.elo : 1200;
+
+    let scoreW = (gameResult === 'win') ? 1 : (gameResult === 'draw') ? 0.5 : 0;
+    let scoreB = 1 - scoreW;
+
+    let performanceW = calculateACPLToPerformance(acplW, knownBotElo, scoreW);
+    let performanceB = calculateACPLToPerformance(acplB, knownPlayerElo, scoreB);
 
     document.getElementById('accuracy-score-w').innerText = accW + "%";
     document.getElementById('accuracy-score-b').innerText = accB + "%";
-    document.getElementById('caps-w').innerText = "Elo: " + playerEloDisplay;
-    document.getElementById('caps-b').innerText = "Elo: " + botEloDisplay;
+    document.getElementById('caps-w').innerText = "Perf. Rating: " + performanceW;
+    document.getElementById('caps-b').innerText = "Perf. Rating: " + performanceB;
 
     for (let k in counts) {
         let statEl = document.getElementById("stat-" + k);
@@ -1203,6 +1272,7 @@ async function runChessComAnalysis() {
             statEl.innerText = counts[k];
         }
     }
+    
     document.getElementById('analysis-status').innerText = "CAPS2 Review Complete";
     analyzeGameForDeepDNA(gameHistory, myPlayerColor);
 }
