@@ -1,19 +1,22 @@
 body { background-color: #1a1b1e; color: #dcddde; font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; justify-content: center; padding: 15px; margin: 0; }
 .container { display: flex; gap: 20px; background: #26282c; padding: 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
 .sidebar { display: flex; flex-direction: column; gap: 6px; width: 270px; }
-.right-panel { width: 260px; }
+.right-panel { width: 250px; }
 
 h2 { margin: 0; font-size: 14px; color: #fff; text-transform: uppercase; letter-spacing: 0.5px; }
 
-/* Schoolwork Stealth Mode Overlay */
-.school-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #ffffff; color: #202124; z-index: 9999; padding: 30px 60px; box-sizing: border-box; overflow-y: auto; font-family: Roboto, Arial, sans-serif; }
-.school-nav { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e0e0e0; padding-bottom: 15px; margin-bottom: 20px; }
-.school-btn { background: #1a73e8; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight: 500; cursor: pointer; }
-.fake-text-box { background: #f8f9fa; border: 1px solid #dadce0; border-radius: 8px; padding: 15px; margin: 15px 0; font-size: 14px; line-height: 1.6; }
+/* Classroom Stealth Disguise View */
+.school-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #f8f9fa; color: #202124; z-index: 99999; padding: 30px 60px; box-sizing: border-box; overflow-y: auto; font-family: 'Google Sans', Roboto, Arial, sans-serif; }
+.school-top-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e8eaed; padding-bottom: 15px; margin-bottom: 25px; }
+.school-btn { background: #1a73e8; color: white; border: none; padding: 10px 20px; border-radius: 4px; font-weight: 500; font-size: 14px; cursor: pointer; transition: background 0.2s; }
+.school-btn:hover { background: #1557b0; }
+.assignment-card { background: #ffffff; border: 1px solid #dadce0; border-radius: 8px; padding: 20px; font-size: 14px; line-height: 1.6; }
+.assignment-card h4 { margin: 0 0 10px 0; color: #1a73e8; font-size: 16px; }
+.school-textarea { width: 100%; height: 220px; padding: 12px; border-radius: 6px; border: 1px solid #dadce0; font-family: inherit; font-size: 13px; box-sizing: border-box; margin-top: 8px; }
 
 /* Modals */
 .modal { position:fixed; top:15%; left:50%; transform:translate(-50%, 0); background:#2f3136; padding:25px; border-radius:12px; z-index:100; box-shadow:0 10px 30px rgba(0,0,0,0.8); text-align:center; width: 300px; }
-.modal-large { position:fixed; top:10%; left:50%; transform:translate(-50%, 0); background:#26282c; padding:25px; border-radius:12px; z-index:150; box-shadow:0 15px 40px rgba(0,0,0,0.9); width: 660px; border: 1px solid #40444b; }
+.modal-large { position:fixed; top:8%; left:50%; transform:translate(-50%, 0); background:#26282c; padding:25px; border-radius:12px; z-index:150; box-shadow:0 15px 40px rgba(0,0,0,0.9); width: 680px; border: 1px solid #40444b; }
 .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #40444b; padding-bottom: 10px; margin-bottom: 15px; }
 .close-modal-btn { background: transparent; color: #aaa; font-size: 18px; border: none; cursor: pointer; }
 
@@ -22,10 +25,10 @@ h2 { margin: 0; font-size: 14px; color: #fff; text-transform: uppercase; letter-
 .dna-card { background: #1e1f23; padding: 15px; border-radius: 8px; border: 1px solid #33363d; }
 .dna-card h3 { margin: 0 0 10px 0; font-size: 13px; color: #7289da; }
 .stat-bar-container { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-size: 11px; }
-.stat-bar-container label { width: 110px; }
+.stat-bar-container label { width: 120px; }
 .stat-bar-container .bar { flex: 1; height: 7px; background: #33363d; border-radius: 4px; overflow: hidden; margin: 0 8px; }
 .stat-bar-container .fill { height: 100%; background: #5865f2; width: 50%; transition: width 0.4s ease; }
-.insights-list { list-style: none; padding: 0; margin: 0; font-size: 11px; max-height: 160px; overflow-y: auto; }
+.insights-list { list-style: none; padding: 0; margin: 0; font-size: 11px; max-height: 180px; overflow-y: auto; }
 .insights-list li { padding: 5px 8px; background: #26282c; border-radius: 4px; margin-bottom: 4px; border-left: 3px solid #5865f2; }
 .dna-footer { display: flex; gap: 10px; margin-top: 12px; }
 .action-btn { flex: 1; padding: 8px; border-radius: 6px; border: none; color: #fff; font-weight: bold; cursor: pointer; font-size: 12px; }
@@ -45,7 +48,7 @@ button:disabled { background: #3a3c42 !important; cursor: not-allowed; opacity: 
 .button-group button { flex: 1; }
 
 .status-box { padding: 8px; background: #18191c; border-radius: 6px; font-weight: bold; color: #43b581; text-align: center; font-size: 12px; }
-.chat-box { background: #18191c; padding: 8px; border-radius: 6px; height: 100px; overflow-y: auto; border-left: 4px solid #5865f2; }
+.chat-box { background: #18191c; padding: 8px; border-radius: 6px; height: 95px; overflow-y: auto; border-left: 4px solid #5865f2; }
 .chat-messages p { margin: 3px 0; font-size: 11px; }
 
 /* Eval Bar */
@@ -61,13 +64,13 @@ button:disabled { background: #3a3c42 !important; cursor: not-allowed; opacity: 
 .grave-piece { width: 18px; height: 18px; background-size: cover; opacity: 0.85; }
 .material-adv { font-weight: bold; color: #faa61a; font-size: 12px; margin-left: 4px; }
 
-/* Chess.com Style Game Review Card */
+/* Chess.com CAPS2 Game Review Card */
 .game-review-card { margin-top: 12px; background: #1e1f23; padding: 15px; border-radius: 10px; border: 1px solid #3e4249; }
 .review-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #33363d; padding-bottom: 8px; }
 .accuracy-summary { display: flex; justify-content: space-around; margin: 10px 0; }
 .accuracy-box { text-align: center; }
 .accuracy-circle { width: 55px; height: 55px; border-radius: 50%; background: #26282c; border: 3px solid #5865f2; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; margin: 0 auto 4px auto; }
-.caps-rating { font-size: 10px; color: #faa61a; font-weight: bold; }
+.caps-rating { font-size: 11px; color: #faa61a; font-weight: bold; }
 
 .move-classification-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 10px; }
 .badge-card { background: #26282c; padding: 6px 2px; border-radius: 5px; text-align: center; border-bottom: 3px solid #666; }
@@ -85,11 +88,11 @@ button:disabled { background: #3a3c42 !important; cursor: not-allowed; opacity: 
 .badge-card.miss { border-color: #ea5b5b; } .badge-card.miss .badge-icon { color: #ea5b5b; }
 .badge-card.blunder { border-color: #fa412d; } .badge-card.blunder .badge-icon { color: #fa412d; }
 
-.move-breakdown-list { max-height: 120px; overflow-y: auto; font-size: 11px; }
+.move-breakdown-list { max-height: 110px; overflow-y: auto; font-size: 11px; }
 .move-breakdown-row { display: flex; justify-content: space-between; padding: 3px 5px; border-bottom: 1px solid #2d3036; align-items: center; }
 
 /* Move History & Friends */
-#move-history-panel { background: #18191c; height: 140px; overflow-y: auto; border-radius: 6px; padding: 6px; }
+#move-history-panel { background: #18191c; height: 130px; overflow-y: auto; border-radius: 6px; padding: 6px; }
 table { width: 100%; border-collapse: collapse; font-size: 11px; }
 th { color: #8e9297; border-bottom: 1px solid #40444b; padding-bottom: 3px; }
 td { padding: 3px 0; }
