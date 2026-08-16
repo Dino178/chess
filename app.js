@@ -29,7 +29,7 @@ if (typeof firebase !== 'undefined' && firebaseConfig.apiKey && firebaseConfig.a
     }
 }
 
-// Local Computer Sync & Profile Storage (No default friends)
+// Local Guest Storage
 let guestProfile = JSON.parse(localStorage.getItem('chessGuestProfile')) || {
     username: "Student_" + Math.floor(1000 + Math.random() * 9000),
     friends: []
@@ -60,7 +60,7 @@ function playSound(type) {
 }
 
 // =================================================================
-// 2. COMPLETE RESTORED BOT ROSTER (40+ BOTS FULLY EXPANDED)
+// 2. COMPLETE RESTORED BOT ROSTER (40+ BOTS)
 // =================================================================
 const allBots = [];
 function addBot(id, name, elo, type, category, handler) {
@@ -77,7 +77,7 @@ function addBot(id, name, elo, type, category, handler) {
     });
 }
 
-// 1. Full Standard Ladder Bots (100 -> 3200)
+// 1. Standard Ladder Bots (100 -> 3200)
 addBot("bot_zach", "Zach", 100, "ladder", "Standard Ladder");
 addBot("bot_martin", "Martin", 200, "ladder", "Standard Ladder");
 addBot("bot_sally", "Sally", 300, "ladder", "Standard Ladder");
@@ -224,18 +224,21 @@ addBot("beh_gambiteer", "Garry Gambiteer", 1750, "behavior", "Tactical", functio
 const PLACEMENT_BENCHMARKS = [600, 900, 1200, 1500, 1800];
 
 // =================================================================
-// 3. DEEP SITUATIONAL DNA ENGINE
+// 3. ADAPTIVE SITUATIONAL DNA & EXACT POSITION REPLAY MEMORY
 // =================================================================
 const DEFAULT_DNA = {
     gamesPlayed: 0,
-    acpl: 48,
+    acpl: 45,
     aggression: 50,
     tactics: 50,
     conversionWhenAhead: 50,
     pressureResilience: 50,
     checkReaction: 50,
     endgameSkill: 50,
-    calculatedElo: 1200
+    calculatedElo: 1200,
+    openings: {}, // Tracks frequency of first 10 moves
+    exactPositionMemory: {}, // FEN -> { san: count }
+    blunderMemory: [] // Patterns player historically avoids
 };
 
 let playerDNA = Object.assign({}, DEFAULT_DNA, JSON.parse(localStorage.getItem('chessPlayerDNA')) || {});
@@ -268,6 +271,13 @@ function analyzeGameForDeepDNA(history, playerColor) {
         totalCpLoss += cpLoss;
         let posEval = m.evalBefore || 0;
 
+        // Remember exact positions & repeated moves
+        let simpleFen = m.fen.split(' ').slice(0, 4).join(' ');
+        if (!playerDNA.exactPositionMemory[simpleFen]) {
+            playerDNA.exactPositionMemory[simpleFen] = {};
+        }
+        playerDNA.exactPositionMemory[simpleFen][m.move] = (playerDNA.exactPositionMemory[simpleFen][m.move] || 0) + 1;
+
         if (posEval >= 250) {
             aheadMoves++;
             if (cpLoss < 60) {
@@ -296,55 +306,80 @@ function analyzeGameForDeepDNA(history, playerColor) {
 
     let matchACPL = totalCpLoss / userMoves.length;
     playerDNA.gamesPlayed++;
-    playerDNA.acpl = Math.round((playerDNA.acpl * 0.75) + (matchACPL * 0.25));
+    
+    // Exponential Moving Average (Adapts quickly as player improves)
+    playerDNA.acpl = Math.round((playerDNA.acpl * 0.65) + (matchACPL * 0.35));
 
     if (aheadMoves > 0) {
-        playerDNA.conversionWhenAhead = Math.round((playerDNA.conversionWhenAhead * 0.70) + ((aheadAccurate / aheadMoves) * 100 * 0.30));
+        playerDNA.conversionWhenAhead = Math.round((playerDNA.conversionWhenAhead * 0.65) + ((aheadAccurate / aheadMoves) * 100 * 0.35));
     }
     if (underPressureMoves > 0) {
-        playerDNA.pressureResilience = Math.round((playerDNA.pressureResilience * 0.70) + ((underPressureAccurate / underPressureMoves) * 100 * 0.30));
+        playerDNA.pressureResilience = Math.round((playerDNA.pressureResilience * 0.65) + ((underPressureAccurate / underPressureMoves) * 100 * 0.35));
     }
     if (checkResponses > 0) {
-        playerDNA.checkReaction = Math.round((playerDNA.checkReaction * 0.70) + ((checkAccurate / checkResponses) * 100 * 0.30));
+        playerDNA.checkReaction = Math.round((playerDNA.checkReaction * 0.65) + ((checkAccurate / checkResponses) * 100 * 0.35));
     }
     if (endgameMoves > 0) {
-        playerDNA.endgameSkill = Math.round((playerDNA.endgameSkill * 0.70) + ((endgameAccurate / endgameMoves) * 100 * 0.30));
+        playerDNA.endgameSkill = Math.round((playerDNA.endgameSkill * 0.65) + ((endgameAccurate / endgameMoves) * 100 * 0.35));
     }
 
     playerDNA.tactics = Math.min(100, Math.max(10, Math.round(100 - (playerDNA.acpl * 0.75))));
     
     let estimatedElo = Math.max(250, Math.min(2900, Math.round(2900 - (playerDNA.acpl * 26))));
-    playerDNA.calculatedElo = Math.round((playerDNA.calculatedElo * 0.70) + (estimatedElo * 0.30));
+    playerDNA.calculatedElo = Math.round((playerDNA.calculatedElo * 0.65) + (estimatedElo * 0.35));
 
     saveGuestAndDNA();
 }
 
 function getCloneBotMove(moves) {
     let target = activeCloneDNA || playerDNA;
-    let isCheck = game.in_check();
+    let simpleFen = game.fen().split(' ').slice(0, 4).join(' ');
 
-    if (isCheck && Math.random() * 100 > target.checkReaction) {
-        return moves[Math.floor(Math.random() * moves.length)].san;
-    }
-
-    if (Math.random() * 100 < target.aggression) {
-        let agg = moves.filter(function(m) {
-            return m.captured || m.san.indexOf('+') !== -1;
-        });
-        if (agg.length > 0) {
-            return agg[Math.floor(Math.random() * agg.length)].san;
+    // 1. Exact Memory: If player has encountered this exact board state, replay their move
+    if (target.exactPositionMemory && target.exactPositionMemory[simpleFen]) {
+        let options = target.exactPositionMemory[simpleFen];
+        let bestSan = null;
+        let highestFreq = 0;
+        for (let san in options) {
+            if (options[san] > highestFreq && moves.some(function(m) { return m.san === san; })) {
+                highestFreq = options[san];
+                bestSan = san;
+            }
+        }
+        if (bestSan) {
+            return bestSan;
         }
     }
 
-    if (Math.random() * 100 < (target.acpl / 2.5)) {
-        return moves[Math.floor(Math.random() * moves.length)].san;
+    // 2. Tactical Evasion: Avoid hanging pieces if tactical rating > 60
+    if (target.tactics > 60) {
+        let safeMoves = moves.filter(function(m) {
+            let tempGame = new Chess(game.fen());
+            tempGame.move(m.san);
+            let oppMoves = tempGame.moves({ verbose: true });
+            let isHanging = oppMoves.some(function(om) {
+                return om.captured && PIECE_VALUES[om.captured] >= PIECE_VALUES[m.piece];
+            });
+            return !isHanging;
+        });
+        if (safeMoves.length > 0) {
+            moves = safeMoves;
+        }
     }
 
-    return null;
+    // 3. Situational Tendency Matching
+    if (Math.random() * 100 < target.aggression) {
+        let aggressive = moves.filter(function(m) { return m.captured || m.san.indexOf('+') !== -1; });
+        if (aggressive.length > 0) {
+            return aggressive[Math.floor(Math.random() * aggressive.length)].san;
+        }
+    }
+
+    return null; // Fallback to engine calculation calibrated to player's Elo
 }
 
 // =================================================================
-// 4. CHESS.COM CAPS2 ACCURACY & POLARITY ENGINE
+// 4. CHESS.COM CAPS2 ACCURACY & ACCURATE BOT RATING PRESERVATION
 // =================================================================
 function cpToWinProb(cp) {
     return 1 / (1 + Math.pow(10, -cp / 400));
@@ -385,33 +420,6 @@ function classifyMove(diffCp, winDiff, isSacrifice) {
         return { tag: "Miss", sym: "✖", key: "miss", color: "#ea5b5b" };
     }
     return { tag: "Blunder", sym: "??", key: "blunder", color: "#fa412d" };
-}
-
-function calculateCalibratedPerformanceRating(accuracy, opponentElo, result) {
-    let baseAccRating = 0;
-    if (accuracy >= 95) {
-        baseAccRating = 2400 + (accuracy - 95) * 80;
-    } else if (accuracy >= 85) {
-        baseAccRating = 1800 + (accuracy - 85) * 60;
-    } else if (accuracy >= 70) {
-        baseAccRating = 1200 + (accuracy - 70) * 40;
-    } else if (accuracy >= 50) {
-        baseAccRating = 600 + (accuracy - 50) * 30;
-    } else {
-        baseAccRating = Math.max(100, accuracy * 12);
-    }
-
-    let modifier = 0;
-    if (result === 'win') {
-        modifier = 350;
-    } else if (result === 'draw') {
-        modifier = 50;
-    } else {
-        modifier = -200;
-    }
-    let maxCap = opponentElo + modifier;
-    let perf = Math.round((baseAccRating * 0.40) + (maxCap * 0.60));
-    return Math.max(100, Math.min(3000, perf));
 }
 
 function evaluatePositionAsync(fen, depth, timeoutMs) {
@@ -521,7 +529,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('schoolwork-overlay').style.display = 'block';
     });
 
-    // Guest and Profile Modal Wiring
+    // Guest & Name Handlers
     document.getElementById('guest-btn').addEventListener('click', function() {
         let customName = document.getElementById('username-input').value.trim();
         if (customName) {
@@ -538,65 +546,6 @@ document.addEventListener('DOMContentLoaded', function() {
             saveGuestAndDNA();
         }
     });
-
-    // Firebase Auth Wiring (if initialized)
-    if (auth) {
-        document.getElementById('login-btn').addEventListener('click', function() {
-            let email = document.getElementById('email-input').value.trim();
-            let password = document.getElementById('password-input').value.trim();
-            auth.signInWithEmailAndPassword(email, password)
-                .then(function(res) {
-                    guestProfile.username = res.user.displayName || res.user.email.split('@')[0];
-                    saveGuestAndDNA();
-                    document.getElementById('auth-modal').style.display = 'none';
-                })
-                .catch(function(err) {
-                    alert("Login failed: " + err.message);
-                });
-        });
-
-        document.getElementById('signup-btn').addEventListener('click', function() {
-            let email = document.getElementById('email-input').value.trim();
-            let password = document.getElementById('password-input').value.trim();
-            auth.createUserWithEmailAndPassword(email, password)
-                .then(function(res) {
-                    let customName = document.getElementById('username-input').value.trim();
-                    if (customName) {
-                        res.user.updateProfile({ displayName: customName });
-                        guestProfile.username = customName;
-                    } else {
-                        guestProfile.username = res.user.email.split('@')[0];
-                    }
-                    saveGuestAndDNA();
-                    document.getElementById('auth-modal').style.display = 'none';
-                })
-                .catch(function(err) {
-                    alert("Sign up failed: " + err.message);
-                });
-        });
-
-        document.getElementById('google-login-btn').addEventListener('click', function() {
-            let provider = new firebase.auth.GoogleAuthProvider();
-            auth.signInWithPopup(provider)
-                .then(function(res) {
-                    guestProfile.username = res.user.displayName || res.user.email.split('@')[0];
-                    saveGuestAndDNA();
-                    document.getElementById('auth-modal').style.display = 'none';
-                })
-                .catch(function(err) {
-                    alert("Google Sign-In failed: " + err.message);
-                });
-        });
-
-        auth.onAuthStateChanged(function(user) {
-            if (user) {
-                currentUser = user;
-                guestProfile.username = user.displayName || user.email.split('@')[0];
-                saveGuestAndDNA();
-                document.getElementById('auth-modal').style.display = 'none';
-            }
-        });
-    }
 
     // Match Setup & Mode Selection
     document.getElementById('game-mode').addEventListener('change', function(e) {
@@ -617,7 +566,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let display = document.getElementById('room-code-display');
         display.style.display = 'block';
         display.innerText = "CODE: " + code;
-        botChat("Hosted Local Room: " + code + ". Share this code to play!");
+        botChat("Hosted Local Room: " + code + ". Share this code with a friend!");
     });
 
     document.getElementById('join-room-btn').addEventListener('click', function() {
@@ -658,9 +607,17 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.className = e.target.value;
     });
 
+    // COMPLETE WIPE / RESET FEATURE
     document.getElementById('clear-data-btn').addEventListener('click', function() {
-        if (confirm("Reset local player data, DNA profile, and friend list?")) {
-            localStorage.clear();
+        if (confirm("⚠️ WIPE ALL DATA: This will reset your profile, DNA learning memory, calculated Elo, and game history. Proceed?")) {
+            localStorage.removeItem('chessGuestProfile');
+            localStorage.removeItem('chessPlayerDNA');
+            guestProfile = {
+                username: "Student_" + Math.floor(1000 + Math.random() * 9000),
+                friends: []
+            };
+            playerDNA = Object.assign({}, DEFAULT_DNA);
+            saveGuestAndDNA();
             location.reload();
         }
     });
@@ -830,11 +787,18 @@ function startGame(isCustomFen) {
         }) || allBots[0];
         document.getElementById('black-name').innerText = currentBot.name;
         document.getElementById('black-elo').innerText = "(Elo " + currentBot.elo + ")";
-        botChat("Match started vs " + currentBot.name + ".");
+        botChat("Match started vs " + currentBot.name + " (" + currentBot.elo + " Elo).");
     } else if (currentMode === 'clone') {
+        currentBot = {
+            id: 'clone_bot',
+            name: "Player Clone AI",
+            elo: playerDNA.calculatedElo,
+            category: 'clone',
+            handler: null
+        };
         document.getElementById('black-name').innerText = "Player Clone AI";
         document.getElementById('black-elo').innerText = "(Elo " + playerDNA.calculatedElo + ")";
-        botChat("Facing your behavioral DNA clone.");
+        botChat("Facing your behavioral DNA clone (" + playerDNA.calculatedElo + " Elo).");
     } else if (currentMode === 'placement') {
         let testElo = PLACEMENT_BENCHMARKS[placementStep] || 1200;
         currentBot = {
@@ -1096,7 +1060,7 @@ function endGame(result, msg) {
         saveGuestAndDNA();
     }
     if (analysisEngine) {
-        runChessComAnalysis(result);
+        runChessComAnalysis();
     }
 }
 
@@ -1165,9 +1129,9 @@ function calculateMaterial() {
 }
 
 // =================================================================
-// 8. ACCURATE CAPS2 REVIEW PIPELINE
+// 8. ACCURATE CAPS2 REVIEW PIPELINE & PRESERVED BOT RATINGS
 // =================================================================
-async function runChessComAnalysis(gameResult) {
+async function runChessComAnalysis() {
     document.getElementById('analysis-panel').style.display = 'block';
     let bEl = document.getElementById('move-breakdown');
     bEl.innerHTML = '';
@@ -1224,14 +1188,14 @@ async function runChessComAnalysis(gameResult) {
         accB = Math.round(sumB / accuracyTotals.b.length);
     }
 
-    let oppElo = currentBot ? currentBot.elo : 1200;
-    let estW = calculateCalibratedPerformanceRating(accW, oppElo, gameResult === 'win' ? 'win' : 'loss');
-    let estB = calculateCalibratedPerformanceRating(accB, playerDNA.calculatedElo, gameResult === 'win' ? 'loss' : 'win');
+    // Preserve the exact Elo of the Bot and player
+    let botEloDisplay = currentBot ? currentBot.elo : 1200;
+    let playerEloDisplay = playerDNA.calculatedElo;
 
     document.getElementById('accuracy-score-w').innerText = accW + "%";
     document.getElementById('accuracy-score-b').innerText = accB + "%";
-    document.getElementById('caps-w').innerText = "Est. Elo: " + estW;
-    document.getElementById('caps-b').innerText = "Est. Elo: " + estB;
+    document.getElementById('caps-w').innerText = "Elo: " + playerEloDisplay;
+    document.getElementById('caps-b').innerText = "Elo: " + botEloDisplay;
 
     for (let k in counts) {
         let statEl = document.getElementById("stat-" + k);
@@ -1266,7 +1230,7 @@ function openDNAModal() {
     list.innerHTML += '<li>⚔️ Advantage Conversion: ' + playerDNA.conversionWhenAhead + '% accuracy when leading by +3.00 eval.</li>';
     list.innerHTML += '<li>🛡️ Defensive Resilience: ' + playerDNA.pressureResilience + '% accuracy when defending behind -3.00 eval.</li>';
     list.innerHTML += '<li>🎯 Average Centipawn Loss: ' + playerDNA.acpl + ' CP.</li>';
-    list.innerHTML += '<li>📊 True Estimated Elo: ' + playerDNA.calculatedElo + ' Elo.</li>';
+    list.innerHTML += '<li>📊 True Profile Elo: ' + playerDNA.calculatedElo + ' Elo.</li>';
 }
 
 function exportDNAFile() {
