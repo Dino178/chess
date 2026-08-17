@@ -1,7 +1,6 @@
 // =================================================================
-// 0. FIREBASE & CLOUD FIRESTORE / REALTIME DB INITIALIZATION
+// 0. FIREBASE & CLOUD FIRESTORE HYBRID INITIALIZATION
 // =================================================================
-// Insert your Firebase project credentials below
 const firebaseConfig = {
   apiKey: "AIzaSyBNeg6-whOIiX4yWWPgffOZY6xm0wrvpu0",
   authDomain: "chess-faac6.firebaseapp.com",
@@ -21,7 +20,6 @@ let firestore = null;
 let currentUser = null;
 let isAdmin = false;
 
-// Initialize Firebase services if valid credentials are present
 if (typeof firebase !== 'undefined' && firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY") {
     try {
         if (!firebase.apps.length) {
@@ -33,11 +31,11 @@ if (typeof firebase !== 'undefined' && firebaseConfig.apiKey && firebaseConfig.a
             firestore = firebase.firestore();
         }
     } catch (e) {
-        console.warn("Firebase initialization skipped or failed; running in offline guest mode.", e);
+        console.warn("Firebase initialization skipped or failed; running local guest mode.", e);
     }
 }
 
-// Local Computer Sync & Persistent Profile Storage
+// Local Guest Storage
 let guestProfile = JSON.parse(localStorage.getItem('chessGuestProfile')) || {
     username: "Student_" + Math.floor(1000 + Math.random() * 9000),
     friends: []
@@ -68,7 +66,7 @@ function playSound(type) {
 }
 
 // =================================================================
-// 2. MASSIVE ROSTER OF 40+ ORIGINAL BOTS (TIERED, PERSONALITY, STYLES)
+// 2. COMPLETE BOT ROSTER (40+ BOTS)
 // =================================================================
 const allBots = [];
 function addBot(id, name, elo, type, category, handler) {
@@ -229,10 +227,8 @@ addBot("beh_tempest", "Tempest (Gambit Striker)", 1750, "behavior", "Tactical", 
     return null;
 });
 
-// Calibration Benchmarks for Placement Matches
 const PLACEMENT_BENCHMARKS = [600, 900, 1200, 1500, 1800];
 
-// Admin Random Name Generator (21x21x21 combinations)
 const word1 = ["Sneaky", "Brilliant", "Clumsy", "Rapid", "Silent", "Angry", "Happy", "Cosmic", "Shadow", "Golden", "Iron", "Mystic", "Rogue", "Brave", "Lazy", "Fierce", "Swift", "Toxic", "Crystal", "Phantom", "Cyber"];
 const word2 = ["Penguin", "Dragon", "Wizard", "Knight", "Panda", "Tiger", "Goblin", "Ninja", "Robot", "Pirate", "Ghost", "Falcon", "Kraken", "Wolf", "Bear", "Sloth", "Cobra", "Raven", "Shark", "Yeti", "Cyborg"];
 const word3 = ["Slayer", "Master", "Crusher", "King", "Queen", "Legend", "Maker", "Hunter", "Breaker", "Walker", "Sniper", "Jumper", "Dasher", "Runner", "Thinker", "Player", "Tactic", "Gambit", "Blunder", "Genius", "Hero"];
@@ -245,7 +241,7 @@ function generateBotUsername() {
 }
 
 // =================================================================
-// 3. ADAPTIVE SITUATIONAL DNA ENGINE & POSITION REPLAY MEMORY
+// 3. ADAPTIVE SITUATIONAL DNA ENGINE & EXACT POSITION MEMORY
 // =================================================================
 const DEFAULT_DNA = {
     gamesPlayed: 0,
@@ -352,7 +348,7 @@ function analyzeGameForDeepDNA(history, playerColor) {
 
     playerDNA.tactics = Math.min(100, Math.max(10, Math.round(100 - (playerDNA.acpl * 0.75))));
     
-    let estimatedElo = Math.max(250, Math.min(2900, Math.round(2900 - (playerDNA.acpl * 26))));
+    let estimatedElo = Math.max(100, Math.min(2900, Math.round(2900 - (playerDNA.acpl * 26))));
     playerDNA.calculatedElo = Math.round((playerDNA.calculatedElo * 0.65) + (estimatedElo * 0.35));
 
     saveGuestAndDNA();
@@ -404,7 +400,7 @@ function getCloneBotMove(moves) {
 }
 
 // =================================================================
-// 4. CAPS2 CALIBRATION & FIDE TOURNAMENT PERFORMANCE FORMULAS
+// 4. CAPS2 CALIBRATION & TRUE FIDE PERFORMANCE ALGORITHM
 // =================================================================
 function cpToWinProb(cp) {
     return 1 / (1 + Math.pow(10, -cp / 400));
@@ -447,34 +443,28 @@ function classifyMove(diffCp, winDiff, isSacrifice) {
     return { tag: "Blunder", sym: "??", key: "blunder", color: "#fa412d" };
 }
 
-function calculateACPLToPerformance(acpl, oppElo, outcome) {
-    let qualityElo = 0;
-    if (acpl <= 15) {
-        qualityElo = 2600 - (acpl * 15);
-    } else if (acpl <= 35) {
-        qualityElo = 2200 - ((acpl - 15) * 20);
-    } else if (acpl <= 65) {
-        qualityElo = 1700 - ((acpl - 35) * 18);
-    } else if (acpl <= 110) {
-        qualityElo = 1100 - ((acpl - 65) * 10);
-    } else if (acpl <= 170) {
-        qualityElo = 650 - ((acpl - 110) * 5);
+function calculateMatchPerformancePair(acplW, acplB, eloW, eloB, outcomeW) {
+    let baseQualityW = Math.max(100, Math.min(2900, 2700 - (acplW * 16)));
+    let baseQualityB = Math.max(100, Math.min(2900, 2700 - (acplB * 16)));
+
+    let perfW = 0;
+    let perfB = 0;
+
+    if (outcomeW === 1) {
+        perfW = Math.max(eloB + 100, Math.round((baseQualityW * 0.40) + ((eloB + 350) * 0.60)));
+        perfB = Math.min(perfW - 80, Math.round((baseQualityB * 0.40) + ((eloW - 350) * 0.60)));
+    } else if (outcomeW === 0) {
+        perfB = Math.max(eloW + 100, Math.round((baseQualityB * 0.40) + ((eloW + 350) * 0.60)));
+        perfW = Math.min(perfB - 80, Math.round((baseQualityW * 0.40) + ((eloB - 350) * 0.60)));
     } else {
-        qualityElo = Math.max(100, 350 - ((acpl - 170) * 2));
+        perfW = Math.round((baseQualityW * 0.40) + (eloB * 0.60));
+        perfB = Math.round((baseQualityB * 0.40) + (eloW * 0.60));
     }
 
-    let resultBonus = 0;
-    if (outcome === 1) {
-        resultBonus = 300;
-    } else if (outcome === 0.5) {
-        resultBonus = 0;
-    } else {
-        resultBonus = -300;
-    }
-    let expectedVersusOpponent = oppElo + resultBonus;
-
-    let finalPerformance = Math.round((qualityElo * 0.50) + (expectedVersusOpponent * 0.50));
-    return Math.max(100, Math.min(3100, finalPerformance));
+    return {
+        white: Math.max(100, Math.min(3100, perfW)),
+        black: Math.max(100, Math.min(3100, perfB))
+    };
 }
 
 function evaluatePositionAsync(fen, depth, timeoutMs) {
@@ -725,6 +715,21 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('draw-btn').addEventListener('click', handleDrawOffer);
     document.getElementById('undo-btn').addEventListener('click', handleUndo);
 
+    // Remove Timer Button
+    let removeTimerBtn = document.getElementById('remove-timer-btn');
+    if (removeTimerBtn) {
+        removeTimerBtn.addEventListener('click', function() {
+            if (!gameActive) {
+                return;
+            }
+            clearInterval(timerInterval);
+            document.getElementById('timer-w').innerText = "--:--";
+            document.getElementById('timer-b').innerText = "--:--";
+            document.getElementById('time-control').value = "0";
+            botChat("Timer disabled for this match.");
+        });
+    }
+
     // Sandbox FEN Loader
     let loadFenBtn = document.getElementById('load-fen-btn');
     if (loadFenBtn) {
@@ -777,7 +782,7 @@ function handleAuthSuccess(user) {
     guestProfile.username = user.displayName || user.email.split('@')[0];
     document.getElementById('auth-modal').style.display = 'none';
 
-    isAdmin = (user.email === "popuppy106@gmail.com");
+    isAdmin = (user.email === "landon.z.low@gmail.com");
     let badge = isAdmin ? '<span style="background:#ed4245; padding:2px 4px; border-radius:4px; font-size:10px;">ADMIN</span> ' : '';
     document.getElementById('player-name-display').innerHTML = badge + guestProfile.username;
     
@@ -789,6 +794,13 @@ function handleAuthSuccess(user) {
     let onlineOpt = document.querySelector('#game-mode option[value="online"]');
     if (onlineOpt) {
         onlineOpt.disabled = false;
+    }
+
+    if (db) {
+        db.ref('users/' + user.uid).update({
+            email: user.email,
+            lastOnline: firebase.database.ServerValue.TIMESTAMP
+        });
     }
 
     if (firestore) {
@@ -1004,7 +1016,6 @@ function triggerBot() {
 
     let elo = currentBot ? currentBot.elo : (playerDNA.calculatedElo || 1200);
 
-    // Human error probability curve for Elo < 1350
     if (elo < 1350) {
         let errorRate = (1350 - elo) / 1400;
         if (Math.random() < errorRate) {
@@ -1017,7 +1028,6 @@ function triggerBot() {
         }
     }
 
-    // Native Stockfish UCI LimitStrength Engine Calibration
     let clampedElo = Math.max(1350, Math.min(2850, elo));
     let depth = 3;
     if (elo >= 2500) {
@@ -1087,9 +1097,12 @@ function startGame(isCustomFen) {
     }
     updateClocks();
 
-    let controlIds = ['resign-btn', 'draw-btn', 'undo-btn'];
+    let controlIds = ['resign-btn', 'draw-btn', 'undo-btn', 'remove-timer-btn'];
     controlIds.forEach(function(id) {
-        document.getElementById(id).disabled = false;
+        let btn = document.getElementById(id);
+        if (btn) {
+            btn.disabled = false;
+        }
     });
     document.getElementById('chat-messages').innerHTML = '';
     document.getElementById('analysis-panel').style.display = 'none';
@@ -1334,6 +1347,9 @@ function tickTimer() {
 }
 
 function updateClocks() {
+    if (parseInt(document.getElementById('time-control').value) === 0) {
+        return;
+    }
     function formatTime(s) {
         let mins = Math.floor(s / 60);
         let secs = (s % 60).toString();
@@ -1365,9 +1381,12 @@ function endGame(result, msg) {
     gameActive = false;
     botThinking = false;
     clearInterval(timerInterval);
-    let controlIds = ['resign-btn', 'draw-btn', 'undo-btn'];
+    let controlIds = ['resign-btn', 'draw-btn', 'undo-btn', 'remove-timer-btn'];
     controlIds.forEach(function(id) {
-        document.getElementById(id).disabled = true;
+        let btn = document.getElementById(id);
+        if (btn) {
+            btn.disabled = true;
+        }
     });
     updateStatus(msg);
     botChat(msg);
@@ -1519,15 +1538,12 @@ async function runChessComAnalysis(gameResult) {
     let knownBotElo = currentBot ? currentBot.elo : 1200;
 
     let scoreW = (gameResult === 'win') ? 1 : (gameResult === 'draw') ? 0.5 : 0;
-    let scoreB = 1 - scoreW;
-
-    let performanceW = calculateACPLToPerformance(acplW, knownBotElo, scoreW);
-    let performanceB = calculateACPLToPerformance(acplB, knownPlayerElo, scoreB);
+    let matchPerf = calculateMatchPerformancePair(acplW, acplB, knownPlayerElo, knownBotElo, scoreW);
 
     document.getElementById('accuracy-score-w').innerText = accW + "%";
     document.getElementById('accuracy-score-b').innerText = accB + "%";
-    document.getElementById('caps-w').innerText = "Perf. Rating: " + performanceW;
-    document.getElementById('caps-b').innerText = "Perf. Rating: " + performanceB;
+    document.getElementById('caps-w').innerText = "Perf. Rating: " + matchPerf.white;
+    document.getElementById('caps-b').innerText = "Perf. Rating: " + matchPerf.black;
 
     for (let k in counts) {
         let statEl = document.getElementById("stat-" + k);
@@ -1543,7 +1559,7 @@ async function runChessComAnalysis(gameResult) {
         firestore.collection('users').doc(currentUser.uid).collection('game_history').add({
             timestamp: firebase.firestore.FieldValue.serverTimestamp(),
             accuracy: { white: accW, black: accB },
-            performance: { white: performanceW, black: performanceB },
+            performance: { white: matchPerf.white, black: matchPerf.black },
             opponent: currentBot ? currentBot.name : "Player 2",
             result: gameResult
         }).catch(function(err) {
