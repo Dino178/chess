@@ -6,7 +6,7 @@ body { background-color: #1a1b1e; color: #dcddde; font-family: 'Segoe UI', Tahom
 h2 { margin: 0; font-size: 14px; color: #fff; text-transform: uppercase; letter-spacing: 0.5px; }
 
 /* Classroom Stealth Disguise View */
-.school-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #f8f9fa; color: #202124; z-index: 99999; padding: 30px 60px; box-sizing: border-box; overflow-y: auto; font-family: 'Google Sans', Roboto, Arial, sans-serif; }
+.school-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #f8f9fa; color: #202124; z-index: 99999; padding: 30px 60px; box-sizing: border-box; overflow-y: auto; font-family: Roboto, Arial, sans-serif; }
 .school-top-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e8eaed; padding-bottom: 15px; margin-bottom: 25px; }
 .school-btn { background: #1a73e8; color: white; border: none; padding: 10px 20px; border-radius: 4px; font-weight: 500; font-size: 14px; cursor: pointer; transition: background 0.2s; }
 .school-btn:hover { background: #1557b0; }
@@ -64,7 +64,7 @@ button:disabled { background: #3a3c42 !important; cursor: not-allowed; opacity: 
 .grave-piece { width: 18px; height: 18px; background-size: cover; opacity: 0.85; }
 .material-adv { font-weight: bold; color: #faa61a; font-size: 12px; margin-left: 4px; }
 
-/* Chess.com CAPS2 Game Review Card */
+/* CAPS2 Game Review Card */
 .game-review-card { margin-top: 12px; background: #1e1f23; padding: 15px; border-radius: 10px; border: 1px solid #3e4249; }
 .review-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #33363d; padding-bottom: 8px; }
 .accuracy-summary { display: flex; justify-content: space-around; margin: 10px 0; }
