@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Google Classroom - AP Biology Unit 4</title>
-    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="theme-wood">
@@ -19,7 +19,6 @@
                     <span style="font-size:12px; color:#5f6368;">Period 4 • Due Today at 11:59 PM • 100 Points</span>
                 </div>
             </div>
-            <!-- Toggle into the Chess App -->
             <button id="open-app-from-school-btn" class="school-btn">Enter Classwork</button>
         </div>
 
@@ -40,17 +39,17 @@
         </div>
     </div>
 
-    <!-- Auth & Guest Modal -->
+    <!-- Auth & Profile Modal -->
     <div id="auth-modal" class="modal" style="display:none;">
-        <h2 style="margin-top:0;">Player Profile</h2>
+        <h2 style="margin-top:0;">Player Profile & Sync</h2>
         <input type="text" id="username-input" placeholder="Display Username" style="margin-bottom:8px;">
-        <input type="email" id="email-input" placeholder="Email (Optional for Firebase)">
+        <input type="email" id="email-input" placeholder="Email (Optional for Cloud Sync)">
         <input type="password" id="password-input" placeholder="Password">
         <div style="display:flex; gap:10px; margin-top:10px; margin-bottom:10px;">
             <button id="login-btn" style="flex:1; background:#43b581;">Login</button>
             <button id="signup-btn" style="flex:1; background:#5865f2;">Sign Up</button>
         </div>
-        <button id="guest-btn" style="width:100%; background:#faa61a; color:#000; font-weight:bold; margin-bottom:8px;">Play as Guest (Saved Locally)</button>
+        <button id="guest-btn" style="width:100%; background:#faa61a; color:#000; font-weight:bold; margin-bottom:8px;">Continue as Local Guest</button>
         <button id="google-login-btn" style="width:100%; background:#fff; color:#000;">Sign in with Google</button>
     </div>
 
@@ -69,7 +68,7 @@
         <button onclick="document.getElementById('custom-room-modal').style.display='none'" style="width:100%; margin-top:10px; background:#4f545c;">Close</button>
     </div>
 
-    <!-- Deep DNA Diagnostics Modal -->
+    <!-- Deep Behavioral DNA Diagnostics Modal -->
     <div id="dna-modal" class="modal-large" style="display:none;">
         <div class="modal-header">
             <h2>🧠 Behavioral DNA & Situational Profiling</h2>
@@ -77,16 +76,16 @@
         </div>
         <div class="dna-grid">
             <div class="dna-card">
-                <h3>Positional & Tactical Reactions</h3>
+                <h3>Positional & Tactical Tendencies</h3>
                 <div class="stat-bar-container"><label>Aggressiveness</label><div class="bar"><div id="bar-aggression" class="fill"></div></div><span id="val-aggression">50%</span></div>
                 <div class="stat-bar-container"><label>Tactical Acuity</label><div class="bar"><div id="bar-tactics" class="fill"></div></div><span id="val-tactics">50%</span></div>
-                <div class="stat-bar-container"><label>Advantage Conversion</label><div class="bar"><div id="bar-conversion" class="fill"></div></div><span id="val-conversion">50%</span></div>
+                <div class="stat-bar-container"><label>Lead Conversion</label><div class="bar"><div id="bar-conversion" class="fill"></div></div><span id="val-conversion">50%</span></div>
                 <div class="stat-bar-container"><label>Pressure Resilience</label><div class="bar"><div id="bar-pressure" class="fill"></div></div><span id="val-pressure">50%</span></div>
-                <div class="stat-bar-container"><label>Check Evasion Clarity</label><div class="bar"><div id="bar-check" class="fill"></div></div><span id="val-check">50%</span></div>
-                <div class="stat-bar-container"><label>Endgame Technique</label><div class="bar"><div id="bar-endgame" class="fill"></div></div><span id="val-endgame">50%</span></div>
+                <div class="stat-bar-container"><label>Check Clarity</label><div class="bar"><div id="bar-check" class="fill"></div></div><span id="val-check">50%</span></div>
+                <div class="stat-bar-container"><label>Endgame Skill</label><div class="bar"><div id="bar-endgame" class="fill"></div></div><span id="val-endgame">50%</span></div>
             </div>
             <div class="dna-card">
-                <h3>Diagnostic Insights & Strengths</h3>
+                <h3>Insights & Diagnostics</h3>
                 <ul id="dna-insights-list" class="insights-list"></ul>
             </div>
         </div>
@@ -98,7 +97,7 @@
         </div>
     </div>
 
-    <!-- MAIN CHESS APP CONTAINER -->
+    <!-- Main Workspace -->
     <div class="container">
         <!-- Left Sidebar -->
         <div class="sidebar">
@@ -111,7 +110,6 @@
                 </div>
             </div>
 
-            <!-- Camouflage Button -->
             <button id="panic-school-btn" style="background:#2b579a; color:#fff; font-size:12px; margin-top:2px;">📖 Hide / Classwork</button>
 
             <h2>Game Setup</h2>
@@ -153,7 +151,7 @@
             </div>
 
             <div class="chat-box" id="chat-box" style="margin-top: 8px;">
-                <div id="chat-messages"><p><em>Select your game settings and begin.</em></p></div>
+                <div id="chat-messages"><p><em>Select your game setup and begin.</em></p></div>
             </div>
         </div>
 
@@ -186,11 +184,11 @@
                 <div class="clock" id="timer-w">10:00</div>
             </div>
             
-            <!-- Chess.com Style CAPS2 Review Panel -->
+            <!-- CAPS2 Review & Performance Panel -->
             <div id="analysis-panel" style="display: none;" class="game-review-card">
                 <div class="review-header">
                     <div>
-                        <h3 style="margin:0; color:#fff;">Game Review & Accuracy</h3>
+                        <h3 style="margin:0; color:#fff;">Game Review & Analysis</h3>
                         <span id="analysis-status" style="font-size:12px; color:#8e9297;">Analyzing moves...</span>
                     </div>
                 </div>
@@ -199,12 +197,12 @@
                     <div class="accuracy-box">
                         <div class="accuracy-circle" id="accuracy-score-w">--%</div>
                         <span>White Accuracy</span>
-                        <div class="caps-rating" id="caps-w">Est. Elo: --</div>
+                        <div class="caps-rating" id="caps-w">Perf. Rating: --</div>
                     </div>
                     <div class="accuracy-box">
                         <div class="accuracy-circle" id="accuracy-score-b">--%</div>
                         <span>Black Accuracy</span>
-                        <div class="caps-rating" id="caps-b">Est. Elo: --</div>
+                        <div class="caps-rating" id="caps-b">Perf. Rating: --</div>
                     </div>
                 </div>
 
@@ -253,8 +251,11 @@
     </div>
 
     <!-- Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
     <script src="app.js"></script>
 </body>
