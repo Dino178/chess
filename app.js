@@ -354,6 +354,23 @@ function analyzeGameForDeepDNA(history, playerColor) {
     saveGuestAndDNA();
 }
 
+function isMoveTacticallySafe(san) {
+    try {
+        let tempGame = new Chess(game.fen());
+        let executed = tempGame.move(san, { sloppy: true });
+        if (!executed) {
+            return false;
+        }
+        let oppMoves = tempGame.moves({ verbose: true });
+        let isHanging = oppMoves.some(function(om) {
+            return om.to === executed.to && om.captured && PIECE_VALUES[om.captured] >= PIECE_VALUES[executed.piece];
+        });
+        return !isHanging;
+    } catch (e) {
+        return true;
+    }
+}
+
 function getCloneBotMove(moves) {
     let target = activeCloneDNA || playerDNA;
     let simpleFen = game.fen().split(' ').slice(0, 4).join(' ');
@@ -368,19 +385,14 @@ function getCloneBotMove(moves) {
                 bestSan = san;
             }
         }
-        if (bestSan) {
+        if (bestSan && isMoveTacticallySafe(bestSan)) {
             return bestSan;
         }
     }
 
     if (target.tactics > 60) {
         let safeMoves = moves.filter(function(m) {
-            let tempGame = new Chess(game.fen());
-            tempGame.move(m.san);
-            let oppMoves = tempGame.moves({ verbose: true });
-            return !oppMoves.some(function(om) {
-                return om.captured && PIECE_VALUES[om.captured] >= PIECE_VALUES[m.piece];
-            });
+            return isMoveTacticallySafe(m.san);
         });
         if (safeMoves.length > 0) {
             moves = safeMoves;
@@ -389,7 +401,7 @@ function getCloneBotMove(moves) {
 
     if (Math.random() * 100 < target.aggression) {
         let aggressive = moves.filter(function(m) {
-            return m.captured || m.san.indexOf('+') !== -1;
+            return (m.captured || m.san.indexOf('+') !== -1) && isMoveTacticallySafe(m.san);
         });
         if (aggressive.length > 0) {
             return aggressive[Math.floor(Math.random() * aggressive.length)].san;
@@ -443,22 +455,26 @@ function classifyMove(diffCp, winDiff, isSacrifice) {
     return { tag: "Blunder", sym: "??", key: "blunder", color: "#fa412d" };
 }
 
-function calculateMatchPerformancePair(acplW, acplB, eloW, eloB, outcomeW) {
+// Authentic FIDE Performance Algorithm: correctly pairs player & bot based on who played White vs Black
+function calculateMatchPerformancePair(acplW, acplB, eloWhite, eloBlack, outcomeWhite) {
     let baseQualityW = Math.max(100, Math.min(2900, 2700 - (acplW * 16)));
     let baseQualityB = Math.max(100, Math.min(2900, 2700 - (acplB * 16)));
 
     let perfW = 0;
     let perfB = 0;
 
-    if (outcomeW === 1) {
-        perfW = Math.max(eloB + 100, Math.round((baseQualityW * 0.40) + ((eloB + 350) * 0.60)));
-        perfB = Math.min(perfW - 80, Math.round((baseQualityB * 0.40) + ((eloW - 350) * 0.60)));
-    } else if (outcomeW === 0) {
-        perfB = Math.max(eloW + 100, Math.round((baseQualityB * 0.40) + ((eloW + 350) * 0.60)));
-        perfW = Math.min(perfB - 80, Math.round((baseQualityW * 0.40) + ((eloB - 350) * 0.60)));
+    if (outcomeWhite === 1) {
+        // White Won
+        perfW = Math.max(eloBlack + 100, Math.round((baseQualityW * 0.40) + ((eloBlack + 350) * 0.60)));
+        perfB = Math.max(100, Math.min(perfW - 100, Math.round((baseQualityB * 0.40) + ((eloWhite - 350) * 0.60))));
+    } else if (outcomeWhite === 0) {
+        // Black Won
+        perfB = Math.max(eloWhite + 100, Math.round((baseQualityB * 0.40) + ((eloWhite + 350) * 0.60)));
+        perfW = Math.max(100, Math.min(perfB - 100, Math.round((baseQualityW * 0.40) + ((eloBlack - 350) * 0.60))));
     } else {
-        perfW = Math.round((baseQualityW * 0.40) + (eloB * 0.60));
-        perfB = Math.round((baseQualityB * 0.40) + (eloW * 0.60));
+        // Draw
+        perfW = Math.round((baseQualityW * 0.40) + (eloBlack * 0.60));
+        perfB = Math.round((baseQualityB * 0.40) + (eloWhite * 0.60));
     }
 
     return {
@@ -551,7 +567,7 @@ const config = {
         clearHighlights();
         highlightCheck();
     },
-    pieceTheme: 'https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/img/chesspieces/wikipedia/{piece}.png'
+    pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
 };
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -1007,14 +1023,18 @@ function triggerBot() {
         }
     }
 
+    let elo = currentBot ? currentBot.elo : (playerDNA.calculatedElo || 1200);
+
+    // Advanced bots (>= 1400 Elo) must pass a tactical safety check before choosing custom themed moves
     if (currentBot && typeof currentBot.handler === 'function') {
         let custom = currentBot.handler(moves);
         if (custom) {
-            return executeBotMove(custom.san || custom);
+            let customSan = custom.san || custom;
+            if (elo < 1400 || isMoveTacticallySafe(customSan)) {
+                return executeBotMove(customSan);
+            }
         }
     }
-
-    let elo = currentBot ? currentBot.elo : (playerDNA.calculatedElo || 1200);
 
     if (elo < 1350) {
         let errorRate = (1350 - elo) / 1400;
@@ -1368,13 +1388,13 @@ function checkGameOver() {
     if (!game.game_over()) {
         return;
     }
-    let res = 'draw';
+    let result = 'draw';
     let msg = "Game drawn.";
     if (game.in_checkmate()) {
-        res = game.turn() === 'w' ? 'loss' : 'win';
-        msg = res === 'win' ? "Checkmate! Victory!" : "Checkmate! Defeat.";
+        result = (game.turn() === myPlayerColor) ? 'loss' : 'win';
+        msg = (result === 'win') ? "Checkmate! Victory!" : "Checkmate! Defeat.";
     }
-    endGame(res, msg);
+    endGame(result, msg);
 }
 
 function endGame(result, msg) {
@@ -1456,12 +1476,12 @@ function calculateMaterial() {
     for (let p in start) {
         let diffW = start[p] - counts.w[p];
         for (let i = 0; i < diffW; i++) {
-            deadW += '<div class="grave-piece" style="background-image:url(\'https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/img/chesspieces/wikipedia/w' + p.toUpperCase() + '.png\')"></div>';
+            deadW += '<div class="grave-piece" style="background-image:url(\'https://chessboardjs.com/img/chesspieces/wikipedia/w' + p.toUpperCase() + '.png\')"></div>';
             scoreB += PIECE_VALUES[p];
         }
         let diffB = start[p] - counts.b[p];
         for (let i = 0; i < diffB; i++) {
-            deadB += '<div class="grave-piece" style="background-image:url(\'https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/img/chesspieces/wikipedia/b' + p.toUpperCase() + '.png\')"></div>';
+            deadB += '<div class="grave-piece" style="background-image:url(\'https://chessboardjs.com/img/chesspieces/wikipedia/b' + p.toUpperCase() + '.png\')"></div>';
             scoreW += PIECE_VALUES[p];
         }
     }
@@ -1519,7 +1539,7 @@ async function runChessComAnalysis(gameResult) {
         accuracyTotals[item.color].push(calculateCAPS2MoveAccuracy(winBefore, winAfter));
 
         let cls = classifyMove(diffCp, Math.abs(winBefore - winAfter));
-        if (item.color === 'w') {
+        if (item.color === myPlayerColor) {
             counts[cls.key]++;
         }
         
@@ -1537,8 +1557,19 @@ async function runChessComAnalysis(gameResult) {
     let knownPlayerElo = playerDNA.calculatedElo || 1200;
     let knownBotElo = currentBot ? currentBot.elo : 1200;
 
-    let scoreW = (gameResult === 'win') ? 1 : (gameResult === 'draw') ? 0.5 : 0;
-    let matchPerf = calculateMatchPerformancePair(acplW, acplB, knownPlayerElo, knownBotElo, scoreW);
+    // Correctly assign Elo to White and Black based on user orientation
+    let eloWhite = (myPlayerColor === 'w') ? knownPlayerElo : knownBotElo;
+    let eloBlack = (myPlayerColor === 'w') ? knownBotElo : knownPlayerElo;
+
+    // Calculate whether White won (1), drew (0.5), or lost (0)
+    let outcomeWhite = 0.5;
+    if (gameResult === 'win') {
+        outcomeWhite = (myPlayerColor === 'w') ? 1 : 0;
+    } else if (gameResult === 'loss') {
+        outcomeWhite = (myPlayerColor === 'w') ? 0 : 1;
+    }
+
+    let matchPerf = calculateMatchPerformancePair(acplW, acplB, eloWhite, eloBlack, outcomeWhite);
 
     document.getElementById('accuracy-score-w').innerText = accW + "%";
     document.getElementById('accuracy-score-b').innerText = accB + "%";
