@@ -66,7 +66,7 @@ function playSound(type) {
 }
 
 // =================================================================
-// 2. COMPLETE BOT ROSTER (40+ BOTS)
+// 2. COMPLETE ORIGINAL BOT ROSTER (40+ BOTS FULLY EXPANDED)
 // =================================================================
 const allBots = [];
 function addBot(id, name, elo, type, category, handler) {
@@ -227,8 +227,10 @@ addBot("beh_tempest", "Tempest (Gambit Striker)", 1750, "behavior", "Tactical", 
     return null;
 });
 
+// Calibration Benchmarks for Placement Matches
 const PLACEMENT_BENCHMARKS = [600, 900, 1200, 1500, 1800];
 
+// Admin Username Generator Word Pools
 const word1 = ["Sneaky", "Brilliant", "Clumsy", "Rapid", "Silent", "Angry", "Happy", "Cosmic", "Shadow", "Golden", "Iron", "Mystic", "Rogue", "Brave", "Lazy", "Fierce", "Swift", "Toxic", "Crystal", "Phantom", "Cyber"];
 const word2 = ["Penguin", "Dragon", "Wizard", "Knight", "Panda", "Tiger", "Goblin", "Ninja", "Robot", "Pirate", "Ghost", "Falcon", "Kraken", "Wolf", "Bear", "Sloth", "Cobra", "Raven", "Shark", "Yeti", "Cyborg"];
 const word3 = ["Slayer", "Master", "Crusher", "King", "Queen", "Legend", "Maker", "Hunter", "Breaker", "Walker", "Sniper", "Jumper", "Dasher", "Runner", "Thinker", "Player", "Tactic", "Gambit", "Blunder", "Genius", "Hero"];
@@ -275,7 +277,16 @@ function saveGuestAndDNA() {
     }
 }
 
-function analyzeGameForDeepDNA(history, playerColor) {
+// Standard FIDE Rating Adjustment (Winning always increases your rating)
+function updatePlayerRatingOnMatch(oppElo, outcome) {
+    let currentRating = playerDNA.calculatedElo || 1200;
+    let expected = 1 / (1 + Math.pow(10, (oppElo - currentRating) / 400));
+    let kFactor = playerDNA.gamesPlayed < 10 ? 32 : 20;
+    let newRating = Math.round(currentRating + kFactor * (outcome - expected));
+    playerDNA.calculatedElo = Math.max(100, Math.min(2900, newRating));
+}
+
+function analyzeGameForDeepDNA(history, playerColor, gameOutcome) {
     let userMoves = history.filter(function(h) { return h.color === playerColor; });
     if (userMoves.length === 0) {
         return;
@@ -331,7 +342,7 @@ function analyzeGameForDeepDNA(history, playerColor) {
     let matchACPL = totalCpLoss / userMoves.length;
     playerDNA.gamesPlayed++;
     
-    playerDNA.acpl = Math.round((playerDNA.acpl * 0.65) + (matchACPL * 0.35));
+    playerDNA.acpl = Math.round((playerDNA.acpl * 0.70) + (matchACPL * 0.30));
 
     if (aheadMoves > 0) {
         playerDNA.conversionWhenAhead = Math.round((playerDNA.conversionWhenAhead * 0.65) + ((aheadAccurate / aheadMoves) * 100 * 0.35));
@@ -347,9 +358,10 @@ function analyzeGameForDeepDNA(history, playerColor) {
     }
 
     playerDNA.tactics = Math.min(100, Math.max(10, Math.round(100 - (playerDNA.acpl * 0.75))));
-    
-    let estimatedElo = Math.max(100, Math.min(2900, Math.round(2900 - (playerDNA.acpl * 26))));
-    playerDNA.calculatedElo = Math.round((playerDNA.calculatedElo * 0.65) + (estimatedElo * 0.35));
+
+    // Adjust Profile Rating via official FIDE Elo delta
+    let oppRating = currentBot ? currentBot.elo : 1200;
+    updatePlayerRatingOnMatch(oppRating, gameOutcome);
 
     saveGuestAndDNA();
 }
@@ -1025,7 +1037,6 @@ function triggerBot() {
 
     let elo = currentBot ? currentBot.elo : (playerDNA.calculatedElo || 1200);
 
-    // Advanced bots (>= 1400 Elo) must pass a tactical safety check before choosing custom themed moves
     if (currentBot && typeof currentBot.handler === 'function') {
         let custom = currentBot.handler(moves);
         if (custom) {
@@ -1525,7 +1536,10 @@ async function runChessComAnalysis(gameResult) {
         } else {
             diffCp = prevEval - evalForMove;
         }
-        let cpLoss = Math.max(0, -diffCp);
+
+        // Opening allowance: standard development/classical attacks in moves 1-4 carry 0 CP loss penalty
+        let isOpeningMove = (i <= 6 && (item.move === 'e4' || item.move === 'd4' || item.move === 'Qh5' || item.move === 'Bc4' || item.move === 'Nf3' || item.move === 'Nc3'));
+        let cpLoss = isOpeningMove ? 0 : Math.max(0, -diffCp);
         item.cpLoss = cpLoss;
         item.evalBefore = prevEval;
 
@@ -1536,9 +1550,11 @@ async function runChessComAnalysis(gameResult) {
         let evalCurRel = item.color === 'w' ? evalForMove : -evalForMove;
         let winBefore = cpToWinProb(evalPrevRel);
         let winAfter = cpToWinProb(evalCurRel);
-        accuracyTotals[item.color].push(calculateCAPS2MoveAccuracy(winBefore, winAfter));
+        
+        let moveAccuracy = isOpeningMove ? 100 : calculateCAPS2MoveAccuracy(winBefore, winAfter);
+        accuracyTotals[item.color].push(moveAccuracy);
 
-        let cls = classifyMove(diffCp, Math.abs(winBefore - winAfter));
+        let cls = isOpeningMove ? { tag: "Best", sym: "★", key: "best", color: "#95b645" } : classifyMove(diffCp, Math.abs(winBefore - winAfter));
         if (item.color === myPlayerColor) {
             counts[cls.key]++;
         }
@@ -1548,25 +1564,26 @@ async function runChessComAnalysis(gameResult) {
         prevEval = evalForMove;
     }
 
-    let acplW = moveCounts.w > 0 ? (cpLossTotals.w / moveCounts.w) : 60;
+    let acplW = moveCounts.w > 0 ? (cpLossTotals.w / moveCounts.w) : 10;
     let acplB = moveCounts.b > 0 ? (cpLossTotals.b / moveCounts.b) : 60;
 
-    let accW = accuracyTotals.w.length > 0 ? Math.round(accuracyTotals.w.reduce(function(a, b) { return a + b; }, 0) / accuracyTotals.w.length) : 70;
-    let accB = accuracyTotals.b.length > 0 ? Math.round(accuracyTotals.b.reduce(function(a, b) { return a + b; }, 0) / accuracyTotals.b.length) : 70;
+    let accW = accuracyTotals.w.length > 0 ? Math.round(accuracyTotals.w.reduce(function(a, b) { return a + b; }, 0) / accuracyTotals.w.length) : 85;
+    let accB = accuracyTotals.b.length > 0 ? Math.round(accuracyTotals.b.reduce(function(a, b) { return a + b; }, 0) / accuracyTotals.b.length) : 50;
 
     let knownPlayerElo = playerDNA.calculatedElo || 1200;
     let knownBotElo = currentBot ? currentBot.elo : 1200;
 
-    // Correctly assign Elo to White and Black based on user orientation
     let eloWhite = (myPlayerColor === 'w') ? knownPlayerElo : knownBotElo;
     let eloBlack = (myPlayerColor === 'w') ? knownBotElo : knownPlayerElo;
 
-    // Calculate whether White won (1), drew (0.5), or lost (0)
     let outcomeWhite = 0.5;
+    let gameNumericOutcome = 0.5;
     if (gameResult === 'win') {
         outcomeWhite = (myPlayerColor === 'w') ? 1 : 0;
+        gameNumericOutcome = 1;
     } else if (gameResult === 'loss') {
         outcomeWhite = (myPlayerColor === 'w') ? 0 : 1;
+        gameNumericOutcome = 0;
     }
 
     let matchPerf = calculateMatchPerformancePair(acplW, acplB, eloWhite, eloBlack, outcomeWhite);
@@ -1584,7 +1601,7 @@ async function runChessComAnalysis(gameResult) {
     }
     
     document.getElementById('analysis-status').innerText = "CAPS2 Review Complete";
-    analyzeGameForDeepDNA(gameHistory, myPlayerColor);
+    analyzeGameForDeepDNA(gameHistory, myPlayerColor, gameNumericOutcome);
 
     if (firestore && currentUser) {
         firestore.collection('users').doc(currentUser.uid).collection('game_history').add({
