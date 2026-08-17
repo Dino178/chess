@@ -1,6 +1,7 @@
 // =================================================================
-// 0. FIREBASE CONFIGURATION & HYBRID GUEST/AUTH SYNC
+// 0. FIREBASE & CLOUD FIRESTORE / REALTIME DB INITIALIZATION
 // =================================================================
+// Insert your Firebase project credentials below
 const firebaseConfig = {
   apiKey: "AIzaSyBNeg6-whOIiX4yWWPgffOZY6xm0wrvpu0",
   authDomain: "chess-faac6.firebaseapp.com",
@@ -13,10 +14,14 @@ const firebaseConfig = {
 };
 
 
+
 let auth = null;
 let db = null;
+let firestore = null;
 let currentUser = null;
+let isAdmin = false;
 
+// Initialize Firebase services if valid credentials are present
 if (typeof firebase !== 'undefined' && firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY") {
     try {
         if (!firebase.apps.length) {
@@ -24,12 +29,15 @@ if (typeof firebase !== 'undefined' && firebaseConfig.apiKey && firebaseConfig.a
         }
         auth = firebase.auth();
         db = firebase.database();
+        if (firebase.firestore) {
+            firestore = firebase.firestore();
+        }
     } catch (e) {
-        console.warn("Firebase initialization skipped or failed:", e);
+        console.warn("Firebase initialization skipped or failed; running in offline guest mode.", e);
     }
 }
 
-// Local Guest Storage
+// Local Computer Sync & Persistent Profile Storage
 let guestProfile = JSON.parse(localStorage.getItem('chessGuestProfile')) || {
     username: "Student_" + Math.floor(1000 + Math.random() * 9000),
     friends: []
@@ -60,7 +68,7 @@ function playSound(type) {
 }
 
 // =================================================================
-// 2. COMPLETE RESTORED BOT ROSTER (40+ BOTS)
+// 2. MASSIVE ROSTER OF 40+ ORIGINAL BOTS (TIERED, PERSONALITY, STYLES)
 // =================================================================
 const allBots = [];
 function addBot(id, name, elo, type, category, handler) {
@@ -77,70 +85,70 @@ function addBot(id, name, elo, type, category, handler) {
     });
 }
 
-// 1. Standard Ladder Bots (100 -> 3200)
-addBot("bot_zach", "Zach", 100, "ladder", "Standard Ladder");
-addBot("bot_martin", "Martin", 200, "ladder", "Standard Ladder");
-addBot("bot_sally", "Sally", 300, "ladder", "Standard Ladder");
-addBot("bot_jimmy", "Jimmy", 400, "ladder", "Standard Ladder");
-addBot("bot_bobby", "Bobby", 500, "ladder", "Standard Ladder");
-addBot("bot_sarah", "Sarah", 600, "ladder", "Standard Ladder");
-addBot("bot_mike", "Mike", 700, "ladder", "Standard Ladder");
-addBot("bot_nelson", "Nelson", 800, "ladder", "Standard Ladder");
-addBot("bot_chloe", "Chloe", 900, "ladder", "Standard Ladder");
-addBot("bot_david", "David", 1000, "ladder", "Standard Ladder");
-addBot("bot_emma", "Emma", 1100, "ladder", "Standard Ladder");
-addBot("bot_maria", "Maria", 1200, "ladder", "Standard Ladder");
-addBot("bot_lucas", "Lucas", 1300, "ladder", "Standard Ladder");
-addBot("bot_sophia", "Sophia", 1400, "ladder", "Standard Ladder");
-addBot("bot_jack", "Jack", 1500, "ladder", "Standard Ladder");
-addBot("bot_elena", "Elena", 1600, "ladder", "Standard Ladder");
-addBot("bot_oliver", "Oliver", 1700, "ladder", "Standard Ladder");
-addBot("bot_viktor", "Viktor", 1800, "ladder", "Standard Ladder");
-addBot("bot_isabella", "Isabella", 1900, "ladder", "Standard Ladder");
-addBot("bot_liam", "Liam", 2000, "ladder", "Standard Ladder");
-addBot("bot_mateo", "Mateo", 2200, "ladder", "Standard Ladder");
-addBot("bot_yuki", "Yuki", 2400, "ladder", "Standard Ladder");
-addBot("bot_hikaru", "Hikaru", 2600, "ladder", "Standard Ladder");
-addBot("bot_magnus", "Magnus", 2800, "ladder", "Standard Ladder");
-addBot("bot_stockfishmax", "Stockfish Max", 3200, "ladder", "Standard Ladder");
+// 1. Standard Tiered Ladder (100 -> 3200)
+addBot("bot_sprout", "Sprout", 100, "ladder", "Beginner");
+addBot("bot_toby", "Toby", 200, "ladder", "Beginner");
+addBot("bot_finley", "Finley", 300, "ladder", "Beginner");
+addBot("bot_milo", "Milo", 400, "ladder", "Beginner");
+addBot("bot_jasper", "Jasper", 500, "ladder", "Casual");
+addBot("bot_sienna", "Sienna", 600, "ladder", "Casual");
+addBot("bot_rowan", "Rowan", 700, "ladder", "Casual");
+addBot("bot_bruno", "Bruno", 800, "ladder", "Intermediate");
+addBot("bot_chloe", "Chloe", 900, "ladder", "Intermediate");
+addBot("bot_darius", "Darius", 1000, "ladder", "Intermediate");
+addBot("bot_astrid", "Astrid", 1100, "ladder", "Club");
+addBot("bot_mateo", "Mateo", 1200, "ladder", "Club");
+addBot("bot_korra", "Korra", 1300, "ladder", "Club");
+addBot("bot_selena", "Selena", 1400, "ladder", "Advanced");
+addBot("bot_alder", "Alder", 1500, "ladder", "Advanced");
+addBot("bot_nadia", "Nadia", 1600, "ladder", "Advanced");
+addBot("bot_orion", "Orion", 1700, "ladder", "Expert");
+addBot("bot_valen", "Valen", 1800, "ladder", "Expert");
+addBot("bot_cassian", "Cassian", 1900, "ladder", "Expert");
+addBot("bot_lyra", "Lyra", 2000, "ladder", "Master");
+addBot("bot_marcus", "Marcus", 2200, "ladder", "Master");
+addBot("bot_kaito", "Kaito", 2400, "ladder", "International Master");
+addBot("bot_artemis", "Artemis", 2600, "ladder", "Grandmaster");
+addBot("bot_solaris", "Solaris", 2800, "ladder", "Super Grandmaster");
+addBot("bot_stockfishmax", "Titan Core", 3200, "ladder", "Engine Maximum");
 
-// 2. Personality Piece Lovers
-addBot("pers_pam", "Pam (Pawn Lover)", 100, "personality", "Personality", function(moves) {
+// 2. Personality Piece Specialists
+addBot("pers_pippa", "Pippa (Pawn Specialist)", 100, "personality", "Personality", function(moves) {
     let favs = moves.filter(function(m) { return m.piece === 'p'; });
     if (favs.length > 0 && Math.random() < 0.75) {
         return favs[Math.floor(Math.random() * favs.length)];
     }
     return null;
 });
-addBot("pers_arthur", "Arthur (King Walker)", 250, "personality", "Personality", function(moves) {
+addBot("pers_rex", "Rex (King Explorer)", 250, "personality", "Personality", function(moves) {
     let favs = moves.filter(function(m) { return m.piece === 'k'; });
     if (favs.length > 0 && Math.random() < 0.75) {
         return favs[Math.floor(Math.random() * favs.length)];
     }
     return null;
 });
-addBot("pers_rocky", "Rocky (Rook Lover)", 1000, "personality", "Personality", function(moves) {
+addBot("pers_rampart", "Rampart (Rook Fortress)", 1000, "personality", "Personality", function(moves) {
     let favs = moves.filter(function(m) { return m.piece === 'r'; });
     if (favs.length > 0 && Math.random() < 0.75) {
         return favs[Math.floor(Math.random() * favs.length)];
     }
     return null;
 });
-addBot("pers_benedict", "Benedict (Bishop Lover)", 1150, "personality", "Personality", function(moves) {
+addBot("pers_basil", "Basil (Bishop Fanatic)", 1150, "personality", "Personality", function(moves) {
     let favs = moves.filter(function(m) { return m.piece === 'b'; });
     if (favs.length > 0 && Math.random() < 0.75) {
         return favs[Math.floor(Math.random() * favs.length)];
     }
     return null;
 });
-addBot("pers_victoria", "Victoria (Queen Lover)", 1250, "personality", "Personality", function(moves) {
+addBot("pers_valkyrie", "Valkyrie (Queen Striker)", 1250, "personality", "Personality", function(moves) {
     let favs = moves.filter(function(m) { return m.piece === 'q'; });
     if (favs.length > 0 && Math.random() < 0.75) {
         return favs[Math.floor(Math.random() * favs.length)];
     }
     return null;
 });
-addBot("pers_lancelot", "Lancelot (Knight Lover)", 1350, "personality", "Personality", function(moves) {
+addBot("pers_gallop", "Sir Gallop (Knight Hopper)", 1350, "personality", "Personality", function(moves) {
     let favs = moves.filter(function(m) { return m.piece === 'n'; });
     if (favs.length > 0 && Math.random() < 0.75) {
         return favs[Math.floor(Math.random() * favs.length)];
@@ -148,35 +156,22 @@ addBot("pers_lancelot", "Lancelot (Knight Lover)", 1350, "personality", "Persona
     return null;
 });
 
-// 3. Behavioral & Strategic Archetypes
-addBot("beh_grog", "Grog (Berserker)", 800, "behavior", "Aggressive", function(moves) {
+// 3. Strategic & Behavioral Archetypes
+addBot("beh_vanguard", "Vanguard (Berserker)", 800, "behavior", "Aggressive", function(moves) {
     let caps = moves.filter(function(m) { return m.captured; });
     if (caps.length > 0 && Math.random() < 0.85) {
         return caps[Math.floor(Math.random() * caps.length)];
     }
     return null;
 });
-addBot("beh_gandhi", "Gandhi (Pacifist)", 900, "behavior", "Positional", function(moves) {
+addBot("beh_zenith", "Zenith (Pacifist)", 900, "behavior", "Positional", function(moves) {
     let nonCaps = moves.filter(function(m) { return !m.captured; });
     if (nonCaps.length > 0 && Math.random() < 0.80) {
         return nonCaps[Math.floor(Math.random() * nonCaps.length)];
     }
     return null;
 });
-addBot("beh_robin", "Sir Robin (Coward)", 950, "behavior", "Quirky", function(moves) {
-    let retreats = moves.filter(function(m) {
-        if (m.color === 'w') {
-            return m.to[1] < m.from[1];
-        } else {
-            return m.to[1] > m.from[1];
-        }
-    });
-    if (retreats.length > 0 && Math.random() < 0.65) {
-        return retreats[Math.floor(Math.random() * retreats.length)];
-    }
-    return null;
-});
-addBot("beh_turtle", "The Turtle", 1100, "behavior", "Solid", function(moves) {
+addBot("beh_crag", "Crag (Turtle Guard)", 1100, "behavior", "Solid", function(moves) {
     let def = moves.filter(function(m) {
         if (m.color === 'w') {
             return m.to[1] <= '4';
@@ -189,7 +184,7 @@ addBot("beh_turtle", "The Turtle", 1100, "behavior", "Solid", function(moves) {
     }
     return null;
 });
-addBot("beh_sniper", "The Sniper", 1400, "behavior", "Positional", function(moves) {
+addBot("beh_ballista", "Ballista (Long-Range Sniper)", 1400, "behavior", "Positional", function(moves) {
     let snipes = moves.filter(function(m) {
         let isLongPiece = (m.piece === 'b' || m.piece === 'r');
         let dist = Math.abs(m.to.charCodeAt(0) - m.from.charCodeAt(0));
@@ -200,7 +195,20 @@ addBot("beh_sniper", "The Sniper", 1400, "behavior", "Positional", function(move
     }
     return null;
 });
-addBot("beh_fianchetto", "Felix Fianchetto", 1650, "behavior", "Positional", function(moves) {
+addBot("beh_retreat", "Bramble (Cautious Dodger)", 950, "behavior", "Quirky", function(moves) {
+    let retreats = moves.filter(function(m) {
+        if (m.color === 'w') {
+            return m.to[1] < m.from[1];
+        } else {
+            return m.to[1] > m.from[1];
+        }
+    });
+    if (retreats.length > 0 && Math.random() < 0.65) {
+        return retreats[Math.floor(Math.random() * retreats.length)];
+    }
+    return null;
+});
+addBot("beh_wing", "Aethelgard (Fianchetto Master)", 1650, "behavior", "Positional", function(moves) {
     let targets = ['g3', 'b3', 'g6', 'b6', 'bg2', 'bb2', 'bg7', 'bb7'];
     let fian = moves.filter(function(m) {
         let sanLower = m.san.toLowerCase();
@@ -211,7 +219,7 @@ addBot("beh_fianchetto", "Felix Fianchetto", 1650, "behavior", "Positional", fun
     }
     return null;
 });
-addBot("beh_gambiteer", "Garry Gambiteer", 1750, "behavior", "Tactical", function(moves) {
+addBot("beh_tempest", "Tempest (Gambit Striker)", 1750, "behavior", "Tactical", function(moves) {
     let gambitMoves = moves.filter(function(m) {
         return m.captured || m.san.indexOf('+') !== -1 || m.piece === 'n';
     });
@@ -221,10 +229,23 @@ addBot("beh_gambiteer", "Garry Gambiteer", 1750, "behavior", "Tactical", functio
     return null;
 });
 
+// Calibration Benchmarks for Placement Matches
 const PLACEMENT_BENCHMARKS = [600, 900, 1200, 1500, 1800];
 
+// Admin Random Name Generator (21x21x21 combinations)
+const word1 = ["Sneaky", "Brilliant", "Clumsy", "Rapid", "Silent", "Angry", "Happy", "Cosmic", "Shadow", "Golden", "Iron", "Mystic", "Rogue", "Brave", "Lazy", "Fierce", "Swift", "Toxic", "Crystal", "Phantom", "Cyber"];
+const word2 = ["Penguin", "Dragon", "Wizard", "Knight", "Panda", "Tiger", "Goblin", "Ninja", "Robot", "Pirate", "Ghost", "Falcon", "Kraken", "Wolf", "Bear", "Sloth", "Cobra", "Raven", "Shark", "Yeti", "Cyborg"];
+const word3 = ["Slayer", "Master", "Crusher", "King", "Queen", "Legend", "Maker", "Hunter", "Breaker", "Walker", "Sniper", "Jumper", "Dasher", "Runner", "Thinker", "Player", "Tactic", "Gambit", "Blunder", "Genius", "Hero"];
+
+function generateBotUsername() {
+    let w1 = word1[Math.floor(Math.random() * word1.length)];
+    let w2 = word2[Math.floor(Math.random() * word2.length)];
+    let w3 = word3[Math.floor(Math.random() * word3.length)];
+    return w1 + w2 + w3;
+}
+
 // =================================================================
-// 3. ADAPTIVE SITUATIONAL DNA & EXACT POSITION REPLAY MEMORY
+// 3. ADAPTIVE SITUATIONAL DNA ENGINE & POSITION REPLAY MEMORY
 // =================================================================
 const DEFAULT_DNA = {
     gamesPlayed: 0,
@@ -236,9 +257,7 @@ const DEFAULT_DNA = {
     checkReaction: 50,
     endgameSkill: 50,
     calculatedElo: 1200,
-    openings: {},
-    exactPositionMemory: {},
-    blunderMemory: []
+    exactPositionMemory: {}
 };
 
 let playerDNA = Object.assign({}, DEFAULT_DNA, JSON.parse(localStorage.getItem('chessPlayerDNA')) || {});
@@ -248,6 +267,16 @@ function saveGuestAndDNA() {
     localStorage.setItem('chessGuestProfile', JSON.stringify(guestProfile));
     localStorage.setItem('chessPlayerDNA', JSON.stringify(playerDNA));
     updateProfileUI();
+
+    if (firestore && currentUser) {
+        firestore.collection('users').doc(currentUser.uid).set({
+            profile: guestProfile,
+            dna: playerDNA,
+            lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true }).catch(function(err) {
+            console.error("Firestore sync error:", err);
+        });
+    }
 }
 
 function analyzeGameForDeepDNA(history, playerColor) {
@@ -353,10 +382,9 @@ function getCloneBotMove(moves) {
             let tempGame = new Chess(game.fen());
             tempGame.move(m.san);
             let oppMoves = tempGame.moves({ verbose: true });
-            let isHanging = oppMoves.some(function(om) {
+            return !oppMoves.some(function(om) {
                 return om.captured && PIECE_VALUES[om.captured] >= PIECE_VALUES[m.piece];
             });
-            return !isHanging;
         });
         if (safeMoves.length > 0) {
             moves = safeMoves;
@@ -364,7 +392,9 @@ function getCloneBotMove(moves) {
     }
 
     if (Math.random() * 100 < target.aggression) {
-        let aggressive = moves.filter(function(m) { return m.captured || m.san.indexOf('+') !== -1; });
+        let aggressive = moves.filter(function(m) {
+            return m.captured || m.san.indexOf('+') !== -1;
+        });
         if (aggressive.length > 0) {
             return aggressive[Math.floor(Math.random() * aggressive.length)].san;
         }
@@ -374,7 +404,7 @@ function getCloneBotMove(moves) {
 }
 
 // =================================================================
-// 4. CHESS.COM CAPS2 ACCURACY & PERFORMANCE FORMULAS
+// 4. CAPS2 CALIBRATION & FIDE TOURNAMENT PERFORMANCE FORMULAS
 // =================================================================
 function cpToWinProb(cp) {
     return 1 / (1 + Math.pow(10, -cp / 400));
@@ -433,7 +463,14 @@ function calculateACPLToPerformance(acpl, oppElo, outcome) {
         qualityElo = Math.max(100, 350 - ((acpl - 170) * 2));
     }
 
-    let resultBonus = outcome === 1 ? 300 : outcome === 0.5 ? 0 : -300;
+    let resultBonus = 0;
+    if (outcome === 1) {
+        resultBonus = 300;
+    } else if (outcome === 0.5) {
+        resultBonus = 0;
+    } else {
+        resultBonus = -300;
+    }
     let expectedVersusOpponent = oppElo + resultBonus;
 
     let finalPerformance = Math.round((qualityElo * 0.50) + (expectedVersusOpponent * 0.50));
@@ -467,7 +504,7 @@ function evaluatePositionAsync(fen, depth, timeoutMs) {
                     score = parseInt(m[1]) > 0 ? 10000 : -10000;
                 }
             }
-            if (line.indexOf('bestmove') === 0 || line.indexOf('bestmove') !== -1) {
+            if (line.indexOf('bestmove') === 0) {
                 cleanup();
                 let isWhite = fen.split(' ')[1] === 'w';
                 resolve(isWhite ? score : -score);
@@ -492,12 +529,14 @@ function evaluatePositionAsync(fen, depth, timeoutMs) {
 }
 
 // =================================================================
-// 5. RESTORED AUTHENTIC STOCKFISH MULTIPV BOT SYSTEM
+// 5. APPLICATION STATE & INITIALIZATION
 // =================================================================
 let board = null;
 let game = null;
 let currentMode = 'bot';
 let currentBot = null;
+let matchId = null;
+let matchRef = null;
 let engine = null;
 let analysisEngine = null;
 let gameActive = false;
@@ -508,7 +547,6 @@ let timeB = 600;
 let timerInterval = null;
 let selectedSquare = null;
 let myPlayerColor = 'w';
-let currentEngineMoves = [];
 let placementStep = 0;
 
 const PIECE_VALUES = { 'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0 };
@@ -523,13 +561,14 @@ const config = {
         clearHighlights();
         highlightCheck();
     },
-    pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
+    pieceTheme: 'https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/img/chesspieces/wikipedia/{piece}.png'
 };
 
 document.addEventListener('DOMContentLoaded', function() {
     updateProfileUI();
     populateBotDropdown();
     renderFriendsList();
+    updateLeaderboardUI();
 
     loadEngine().then(function(w) {
         engine = w;
@@ -539,6 +578,7 @@ document.addEventListener('DOMContentLoaded', function() {
         analysisEngine = w;
     });
 
+    // Classroom Stealth Handlers
     document.getElementById('open-app-from-school-btn').addEventListener('click', function() {
         document.getElementById('schoolwork-overlay').style.display = 'none';
     });
@@ -546,6 +586,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('schoolwork-overlay').style.display = 'block';
     });
 
+    // Guest and Name Handlers
     document.getElementById('guest-btn').addEventListener('click', function() {
         let customName = document.getElementById('username-input').value.trim();
         if (customName) {
@@ -563,19 +604,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Firebase Authentication
     if (auth) {
         document.getElementById('login-btn').addEventListener('click', function() {
             let email = document.getElementById('email-input').value.trim();
             let password = document.getElementById('password-input').value.trim();
             auth.signInWithEmailAndPassword(email, password)
-                .then(function(res) {
-                    guestProfile.username = res.user.displayName || res.user.email.split('@')[0];
-                    saveGuestAndDNA();
-                    document.getElementById('auth-modal').style.display = 'none';
-                })
-                .catch(function(err) {
-                    alert("Login failed: " + err.message);
-                });
+                .then(function(res) { handleAuthSuccess(res.user); })
+                .catch(function(err) { alert("Login failed: " + err.message); });
         });
 
         document.getElementById('signup-btn').addEventListener('click', function() {
@@ -583,44 +619,56 @@ document.addEventListener('DOMContentLoaded', function() {
             let password = document.getElementById('password-input').value.trim();
             auth.createUserWithEmailAndPassword(email, password)
                 .then(function(res) {
-                    let customName = document.getElementById('username-input').value.trim();
-                    if (customName) {
-                        res.user.updateProfile({ displayName: customName });
-                        guestProfile.username = customName;
-                    } else {
-                        guestProfile.username = res.user.email.split('@')[0];
-                    }
-                    saveGuestAndDNA();
-                    document.getElementById('auth-modal').style.display = 'none';
+                    let customName = document.getElementById('username-input').value.trim() || email.split('@')[0];
+                    res.user.updateProfile({ displayName: customName });
+                    handleAuthSuccess(res.user);
                 })
-                .catch(function(err) {
-                    alert("Sign up failed: " + err.message);
-                });
+                .catch(function(err) { alert("Sign up failed: " + err.message); });
         });
 
         document.getElementById('google-login-btn').addEventListener('click', function() {
             let provider = new firebase.auth.GoogleAuthProvider();
             auth.signInWithPopup(provider)
-                .then(function(res) {
-                    guestProfile.username = res.user.displayName || res.user.email.split('@')[0];
-                    saveGuestAndDNA();
-                    document.getElementById('auth-modal').style.display = 'none';
-                })
-                .catch(function(err) {
-                    alert("Google Sign-In failed: " + err.message);
-                });
+                .then(function(res) { handleAuthSuccess(res.user); })
+                .catch(function(err) { alert("Google Sign-In failed: " + err.message); });
         });
 
         auth.onAuthStateChanged(function(user) {
             if (user) {
-                currentUser = user;
-                guestProfile.username = user.displayName || user.email.split('@')[0];
-                saveGuestAndDNA();
-                document.getElementById('auth-modal').style.display = 'none';
+                handleAuthSuccess(user);
             }
         });
     }
 
+    // Admin Bot Spawner Handler
+    let adminSpawnBtn = document.getElementById('admin-spawn-btn');
+    if (adminSpawnBtn) {
+        adminSpawnBtn.addEventListener('click', function() {
+            if (!isAdmin || !db) {
+                return;
+            }
+            let selectedBot = allBots.find(function(b) {
+                return b.id === document.getElementById('bot-select').value;
+            });
+            let customEloInput = parseInt(document.getElementById('admin-custom-elo').value);
+            let finalElo = isNaN(customEloInput) ? selectedBot.elo : customEloInput;
+            let randomName = generateBotUsername();
+
+            db.ref('matchmaking').push({
+                uid: "BOT_" + Date.now(),
+                displayName: randomName,
+                elo: finalElo,
+                isBot: true,
+                botId: selectedBot.id,
+                waiting: true
+            });
+
+            botChat("Admin: Spawned bot " + randomName + " (" + finalElo + " Elo) into global matchmaking queue.");
+            document.getElementById('admin-custom-elo').value = '';
+        });
+    }
+
+    // Match Setup & Mode Selection
     document.getElementById('game-mode').addEventListener('change', function(e) {
         currentMode = e.target.value;
         document.getElementById('bot-settings').style.display = (currentMode === 'bot') ? 'block' : 'none';
@@ -639,7 +687,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let display = document.getElementById('room-code-display');
         display.style.display = 'block';
         display.innerText = "CODE: " + code;
-        botChat("Hosted Local Room: " + code + ". Share this code with a friend!");
+        botChat("Hosted Local Room: " + code + ". Share this code to play!");
     });
 
     document.getElementById('join-room-btn').addEventListener('click', function() {
@@ -663,7 +711,11 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     document.getElementById('start-btn').addEventListener('click', function() {
-        startGame(false);
+        if (currentMode === 'online') {
+            findOnlineMatch();
+        } else {
+            startGame(false);
+        }
     });
     document.getElementById('resign-btn').addEventListener('click', function() {
         if (gameActive) {
@@ -672,6 +724,26 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     document.getElementById('draw-btn').addEventListener('click', handleDrawOffer);
     document.getElementById('undo-btn').addEventListener('click', handleUndo);
+
+    // Sandbox FEN Loader
+    let loadFenBtn = document.getElementById('load-fen-btn');
+    if (loadFenBtn) {
+        loadFenBtn.addEventListener('click', function() {
+            let fen = document.getElementById('fen-input').value.trim();
+            if (game.load(fen)) {
+                board.position(fen);
+                startGame(true);
+            } else {
+                alert("Invalid FEN notation string.");
+            }
+        });
+    }
+
+    // PGN Downloader
+    let downloadPgnBtn = document.getElementById('download-pgn');
+    if (downloadPgnBtn) {
+        downloadPgnBtn.addEventListener('click', downloadGamePGN);
+    }
 
     document.getElementById('open-dna-btn').addEventListener('click', openDNAModal);
     document.getElementById('export-dna-btn').addEventListener('click', exportDNAFile);
@@ -684,6 +756,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (confirm("WIPE ALL DATA: This will reset your profile, DNA learning memory, calculated Elo, and game history. Proceed?")) {
             localStorage.removeItem('chessGuestProfile');
             localStorage.removeItem('chessPlayerDNA');
+            localStorage.removeItem('chessLeaderboard');
             guestProfile = {
                 username: "Student_" + Math.floor(1000 + Math.random() * 9000),
                 friends: []
@@ -698,6 +771,46 @@ document.addEventListener('DOMContentLoaded', function() {
     board = Chessboard('myBoard', config);
     setupClickToMove();
 });
+
+function handleAuthSuccess(user) {
+    currentUser = user;
+    guestProfile.username = user.displayName || user.email.split('@')[0];
+    document.getElementById('auth-modal').style.display = 'none';
+
+    isAdmin = (user.email === "popuppy106@gmail.com");
+    let badge = isAdmin ? '<span style="background:#ed4245; padding:2px 4px; border-radius:4px; font-size:10px;">ADMIN</span> ' : '';
+    document.getElementById('player-name-display').innerHTML = badge + guestProfile.username;
+    
+    let adminPanel = document.getElementById('admin-panel');
+    if (adminPanel) {
+        adminPanel.style.display = isAdmin ? 'block' : 'none';
+    }
+
+    let onlineOpt = document.querySelector('#game-mode option[value="online"]');
+    if (onlineOpt) {
+        onlineOpt.disabled = false;
+    }
+
+    if (firestore) {
+        firestore.collection('users').doc(user.uid).get().then(function(doc) {
+            if (doc.exists) {
+                let data = doc.data();
+                if (data.dna) {
+                    playerDNA = Object.assign({}, DEFAULT_DNA, data.dna);
+                }
+                if (data.profile && data.profile.friends) {
+                    guestProfile.friends = data.profile.friends;
+                }
+                saveGuestAndDNA();
+                renderFriendsList();
+            } else {
+                saveGuestAndDNA();
+            }
+        });
+    } else {
+        saveGuestAndDNA();
+    }
+}
 
 function populateBotDropdown() {
     let select = document.getElementById('bot-select');
@@ -728,6 +841,35 @@ function challengeFriend(f) {
     document.getElementById('custom-room-modal').style.display = 'block';
 }
 
+function updateLeaderboardUI() {
+    let lb = document.getElementById('leaderboard-stats');
+    if (!lb) {
+        return;
+    }
+    lb.innerHTML = '';
+    let d = JSON.parse(localStorage.getItem('chessLeaderboard')) || {};
+    for (let id in d) {
+        let s = d[id];
+        lb.innerHTML += '<div class="stat-row"><span class="stat-name">' + s.name + '</span><span class="stat-score">' + s.wins + 'W - ' + s.losses + 'L - ' + (s.draws || 0) + 'D</span></div>';
+    }
+}
+
+function recordLeaderboardMatch(opponentName, outcome) {
+    let d = JSON.parse(localStorage.getItem('chessLeaderboard')) || {};
+    if (!d[opponentName]) {
+        d[opponentName] = { name: opponentName, wins: 0, losses: 0, draws: 0 };
+    }
+    if (outcome === 'win') {
+        d[opponentName].wins++;
+    } else if (outcome === 'loss') {
+        d[opponentName].losses++;
+    } else {
+        d[opponentName].draws++;
+    }
+    localStorage.setItem('chessLeaderboard', JSON.stringify(d));
+    updateLeaderboardUI();
+}
+
 function loadEngine() {
     return fetch('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js')
         .then(function(res) { return res.text(); })
@@ -737,7 +879,105 @@ function loadEngine() {
 }
 
 // =================================================================
-// 6. MULTIPV CANDIDATE SELECTION FOR REAL BOT RATINGS
+// 6. ONLINE MULTIPLAYER MATCHMAKING QUEUE
+// =================================================================
+function findOnlineMatch() {
+    if (!currentUser || !db) {
+        return alert("You must be logged in to play online multiplayer!");
+    }
+    updateStatus("Searching for an opponent...");
+    botChat("Searching for a live online match...");
+
+    let queueRef = db.ref('matchmaking');
+    queueRef.orderByChild('waiting').equalTo(true).once('value', function(snapshot) {
+        let players = snapshot.val();
+        if (players) {
+            let opponentKey = Object.keys(players)[0];
+            let opponent = players[opponentKey];
+
+            if (opponent.uid === currentUser.uid) {
+                return waitForMatch(queueRef);
+            }
+
+            matchId = "match_" + Date.now();
+            myPlayerColor = 'b';
+
+            db.ref('matches/' + matchId).set({
+                white: opponent.uid,
+                whiteName: opponent.displayName,
+                black: currentUser.uid,
+                blackName: currentUser.displayName || currentUser.email.split('@')[0],
+                fen: "start",
+                lastMove: "",
+                turn: 'w',
+                isBotMatch: opponent.isBot || false,
+                botId: opponent.botId || null,
+                botElo: opponent.elo || 1200
+            });
+
+            queueRef.child(opponentKey).update({ waiting: false, matchId: matchId });
+            startOnlineGame(opponent.displayName || "Opponent", opponent);
+        } else {
+            waitForMatch(queueRef);
+        }
+    });
+}
+
+function waitForMatch(queueRef) {
+    let myQueueRef = queueRef.push({
+        uid: currentUser.uid,
+        displayName: currentUser.displayName || currentUser.email.split('@')[0],
+        waiting: true
+    });
+
+    myQueueRef.on('value', function(snapshot) {
+        let data = snapshot.val();
+        if (data && data.matchId) {
+            matchId = data.matchId;
+            myPlayerColor = 'w';
+            myQueueRef.remove();
+            startOnlineGame("Opponent", { isBot: false });
+        }
+    });
+
+    myQueueRef.onDisconnect().remove();
+}
+
+function startOnlineGame(opponentName, opponentData) {
+    game.reset();
+    board.start();
+    board.orientation(myPlayerColor === 'w' ? 'white' : 'black');
+    gameActive = true;
+    botThinking = false;
+    selectedSquare = null;
+
+    document.getElementById('black-name').innerText = opponentName;
+    document.getElementById('white-name').innerText = currentUser.displayName || currentUser.email.split('@')[0];
+    botChat("Match found! You are playing as " + (myPlayerColor === 'w' ? "White" : "Black") + ".");
+
+    if (opponentData && opponentData.isBot) {
+        currentBot = allBots.find(function(b) { return b.id === opponentData.botId; }) || allBots[0];
+        currentBot.elo = opponentData.elo || currentBot.elo;
+        if (myPlayerColor === 'b') {
+            botThinking = true;
+            setTimeout(triggerBot, 500);
+        }
+    }
+
+    matchRef = db.ref('matches/' + matchId);
+    matchRef.on('value', function(snapshot) {
+        let data = snapshot.val();
+        if (data && data.fen !== game.fen() && data.fen !== "start") {
+            game.load(data.fen);
+            board.position(game.fen());
+            handleMoveVisuals({ san: data.lastMove }, true);
+        }
+    });
+    updateStatus();
+}
+
+// =================================================================
+// 7. ROBUST STOCKFISH BOT CONTROLLER (NATIVE UCI_ELO + BLUNDER CURVE)
 // =================================================================
 function triggerBot() {
     if (!gameActive || !engine) {
@@ -764,62 +1004,66 @@ function triggerBot() {
 
     let elo = currentBot ? currentBot.elo : (playerDNA.calculatedElo || 1200);
 
-    let depth = Math.max(1, Math.min(20, Math.floor(elo / 150))); 
-    let skillLevel = Math.max(0, Math.min(20, Math.floor((elo - 500) / 100)));
-    let moveTime = Math.max(100, Math.min(3000, Math.floor(elo / 1.5)));
-    let multiPvCount = 1;
-    if (elo < 1000) {
-        multiPvCount = 5;
-    } else if (elo < 1500) {
-        multiPvCount = 3;
+    // Human error probability curve for Elo < 1350
+    if (elo < 1350) {
+        let errorRate = (1350 - elo) / 1400;
+        if (Math.random() < errorRate) {
+            let nonCheckingMoves = moves.filter(function(m) {
+                return m.san.indexOf('+') === -1 && m.san.indexOf('#') === -1;
+            });
+            let pool = nonCheckingMoves.length > 0 ? nonCheckingMoves : moves;
+            let randomMove = pool[Math.floor(Math.random() * pool.length)];
+            return executeBotMove(randomMove.san);
+        }
     }
 
-    currentEngineMoves = [];
-    engine.postMessage('setoption name Skill Level value ' + skillLevel);
-    engine.postMessage('setoption name MultiPV value ' + multiPvCount);
+    // Native Stockfish UCI LimitStrength Engine Calibration
+    let clampedElo = Math.max(1350, Math.min(2850, elo));
+    let depth = 3;
+    if (elo >= 2500) {
+        depth = 18;
+    } else if (elo >= 2000) {
+        depth = 14;
+    } else if (elo >= 1500) {
+        depth = 10;
+    } else if (elo >= 1000) {
+        depth = 6;
+    }
+    let moveTime = Math.min(2500, Math.max(150, Math.floor(elo * 0.8)));
+
+    engine.postMessage('setoption name UCI_LimitStrength value true');
+    engine.postMessage('setoption name UCI_Elo value ' + clampedElo);
     engine.postMessage('position fen ' + game.fen());
     engine.postMessage('go depth ' + depth + ' movetime ' + moveTime);
 }
 
 function handleEngineMessage(event) {
     let line = event.data;
-    if (line.indexOf('info depth') !== -1 && line.indexOf('multipv') !== -1) {
-        let pvMatch = line.match(/multipv (\d+).* pv ([a-h][1-8][a-h][1-8][qrbn]?)/);
-        if (pvMatch) {
-            currentEngineMoves[parseInt(pvMatch[1]) - 1] = pvMatch[2];
-        }
-    }
-    
     if (line.indexOf('bestmove') === 0) {
         let bestMove = line.split(' ')[1];
-        let moveToPlay = bestMove;
-        let elo = currentBot ? currentBot.elo : 1200;
-        
-        if (elo < 1000 && currentEngineMoves.length > 1) {
-            let targetIndex = Math.floor((1000 - elo) / 200); 
-            targetIndex = Math.min(targetIndex, currentEngineMoves.length - 1);
-            if (currentEngineMoves[targetIndex]) {
-                moveToPlay = currentEngineMoves[targetIndex];
-            }
+        if (bestMove && bestMove !== '(none)') {
+            executeBotMove(bestMove);
         }
-        executeBotMove(moveToPlay);
     }
 }
 
 function executeBotMove(sanOrUci) {
-    let delay = Math.floor(Math.random() * 400) + 250;
+    let delay = Math.floor(Math.random() * 300) + 200;
     setTimeout(function() {
         let move = game.move(sanOrUci, { sloppy: true });
         if (move) {
             board.position(game.fen());
             botThinking = false;
             handleMoveVisuals(move, false);
+            if (currentMode === 'online' && matchRef) {
+                matchRef.update({ fen: game.fen(), lastMove: move.san, turn: game.turn() });
+            }
         }
     }, delay);
 }
 
 // =================================================================
-// 7. BOARD CONTROL & GAMEPLAY LOOP
+// 8. BOARD CONTROL & GAMEPLAY LOOP
 // =================================================================
 function startGame(isCustomFen) {
     if (!isCustomFen) {
@@ -944,6 +1188,9 @@ function setupClickToMove() {
                 clearHighlights();
                 selectedSquare = null;
                 handleMoveVisuals(move, false);
+                if (currentMode === 'online' && matchRef) {
+                    matchRef.update({ fen: game.fen(), lastMove: move.san, turn: game.turn() });
+                }
                 if (gameActive && game.turn() !== myPlayerColor && currentMode !== 'pvp') {
                     botThinking = true;
                     setTimeout(triggerBot, 250);
@@ -982,6 +1229,9 @@ function onDrop(source, target) {
         return 'snapback';
     }
     handleMoveVisuals(move, false);
+    if (currentMode === 'online' && matchRef) {
+        matchRef.update({ fen: game.fen(), lastMove: move.san, turn: game.turn() });
+    }
     if (gameActive && game.turn() !== myPlayerColor && currentMode !== 'pvp') {
         botThinking = true;
         setTimeout(triggerBot, 250);
@@ -1122,6 +1372,9 @@ function endGame(result, msg) {
     updateStatus(msg);
     botChat(msg);
 
+    let opponentName = currentBot ? currentBot.name : "Player 2";
+    recordLeaderboardMatch(opponentName, result);
+
     if (currentMode === 'placement') {
         if (result === 'win') {
             placementStep = Math.min(PLACEMENT_BENCHMARKS.length - 1, placementStep + 1);
@@ -1184,12 +1437,12 @@ function calculateMaterial() {
     for (let p in start) {
         let diffW = start[p] - counts.w[p];
         for (let i = 0; i < diffW; i++) {
-            deadW += '<div class="grave-piece" style="background-image:url(\'https://chessboardjs.com/img/chesspieces/wikipedia/w' + p.toUpperCase() + '.png\')"></div>';
+            deadW += '<div class="grave-piece" style="background-image:url(\'https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/img/chesspieces/wikipedia/w' + p.toUpperCase() + '.png\')"></div>';
             scoreB += PIECE_VALUES[p];
         }
         let diffB = start[p] - counts.b[p];
         for (let i = 0; i < diffB; i++) {
-            deadB += '<div class="grave-piece" style="background-image:url(\'https://chessboardjs.com/img/chesspieces/wikipedia/b' + p.toUpperCase() + '.png\')"></div>';
+            deadB += '<div class="grave-piece" style="background-image:url(\'https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/img/chesspieces/wikipedia/b' + p.toUpperCase() + '.png\')"></div>';
             scoreW += PIECE_VALUES[p];
         }
     }
@@ -1201,7 +1454,7 @@ function calculateMaterial() {
 }
 
 // =================================================================
-// 8. AUTHENTIC TOURNAMENT PERFORMANCE RATING & CAPS2 ACCURACY
+// 9. ACCURATE CAPS2 REVIEW & FIDE PERFORMANCE RATINGS
 // =================================================================
 async function runChessComAnalysis(gameResult) {
     document.getElementById('analysis-panel').style.display = 'block';
@@ -1209,10 +1462,16 @@ async function runChessComAnalysis(gameResult) {
     bEl.innerHTML = '';
     
     let counts = {
-        brilliant: 0, great: 0, best: 0, excellent: 0, good: 0,
-        inaccuracy: 0, mistake: 0, miss: 0, blunder: 0
+        brilliant: 0,
+        great: 0,
+        best: 0,
+        excellent: 0,
+        good: 0,
+        inaccuracy: 0,
+        mistake: 0,
+        miss: 0,
+        blunder: 0
     };
-    
     let accuracyTotals = { w: [], b: [] };
     let cpLossTotals = { w: 0, b: 0 };
     let moveCounts = { w: 0, b: 0 };
@@ -1221,8 +1480,12 @@ async function runChessComAnalysis(gameResult) {
     for (let i = 1; i < gameHistory.length; i++) {
         let item = gameHistory[i];
         let evalForMove = await evaluatePositionAsync(item.fen, 8, 1200);
-        
-        let diffCp = item.color === 'w' ? (evalForMove - prevEval) : (prevEval - evalForMove);
+        let diffCp = 0;
+        if (item.color === 'w') {
+            diffCp = evalForMove - prevEval;
+        } else {
+            diffCp = prevEval - evalForMove;
+        }
         let cpLoss = Math.max(0, -diffCp);
         item.cpLoss = cpLoss;
         item.evalBefore = prevEval;
@@ -1275,11 +1538,46 @@ async function runChessComAnalysis(gameResult) {
     
     document.getElementById('analysis-status').innerText = "CAPS2 Review Complete";
     analyzeGameForDeepDNA(gameHistory, myPlayerColor);
+
+    if (firestore && currentUser) {
+        firestore.collection('users').doc(currentUser.uid).collection('game_history').add({
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            accuracy: { white: accW, black: accB },
+            performance: { white: performanceW, black: performanceB },
+            opponent: currentBot ? currentBot.name : "Player 2",
+            result: gameResult
+        }).catch(function(err) {
+            console.error("Could not save game history:", err);
+        });
+    }
 }
 
 // =================================================================
-// 9. DNA MODAL & IMPORT/EXPORT PIPELINE
+// 10. PGN DOWNLOADER, DNA MODAL & IMPORT/EXPORT PIPELINE
 // =================================================================
+function downloadGamePGN() {
+    let pgnText = '';
+    pgnText += '[Event "Casual Match"]\n';
+    pgnText += '[Site "Localhost Client"]\n';
+    pgnText += '[Date "' + new Date().toISOString().slice(0, 10) + '"]\n';
+    pgnText += '[White "' + (guestProfile.username || 'White') + '"]\n';
+    pgnText += '[Black "' + (currentBot ? currentBot.name : 'Black') + '"]\n';
+    pgnText += '[Result "*"]\n\n';
+
+    for (let i = 1; i < gameHistory.length; i += 2) {
+        let num = Math.ceil(i / 2) + ".";
+        let wMove = gameHistory[i].move;
+        let bMove = gameHistory[i + 1] ? gameHistory[i + 1].move : "";
+        pgnText += num + " " + wMove + " " + bMove + " ";
+    }
+
+    let blob = new Blob([pgnText], { type: "text/plain" });
+    let a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = "chess_match_" + Date.now() + ".pgn";
+    a.click();
+}
+
 function openDNAModal() {
     document.getElementById('dna-modal').style.display = 'block';
     document.getElementById('bar-aggression').style.width = playerDNA.aggression + '%';
@@ -1300,7 +1598,7 @@ function openDNAModal() {
     list.innerHTML += '<li>⚔️ Advantage Conversion: ' + playerDNA.conversionWhenAhead + '% accuracy when leading by +3.00 eval.</li>';
     list.innerHTML += '<li>🛡️ Defensive Resilience: ' + playerDNA.pressureResilience + '% accuracy when defending behind -3.00 eval.</li>';
     list.innerHTML += '<li>🎯 Average Centipawn Loss: ' + playerDNA.acpl + ' CP.</li>';
-    list.innerHTML += '<li>📊 True Profile Elo: ' + playerDNA.calculatedElo + ' Elo.</li>';
+    list.innerHTML += '<li>📊 Profile Rating: ' + playerDNA.calculatedElo + ' Elo.</li>';
 }
 
 function exportDNAFile() {
