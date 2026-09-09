@@ -1618,34 +1618,58 @@ function handleMoveVisuals(move, isSync) {
     checkGameOver();
 }
 
-function highlightLegalMoves(square) {
-    clearHighlights();
-    selectedSquare = square;
-
-    // Highlight the clicked piece's square
-    $('#myBoard .square-' + square).addClass('selected-square');
-
-    // Get all valid moves for this piece from chess.js
-    let moves = game.moves({ square: square, verbose: true });
-    moves.forEach(function(m) {
-        let $sq = $('#myBoard .square-' + m.to);
-        if (m.captured) {
-            $sq.addClass('legal-capture');
-        } else {
-            $sq.addClass('legal-move');
-        }
-    });
-}
+// =================================================================
+// CLICK-TO-MOVE, SELECTION & BOARD HIGHLIGHTING ENGINE
+// =================================================================
 
 function clearHighlights() {
     $('#myBoard .square-55d63').removeClass('legal-move legal-capture selected-square');
 }
 
+function highlightCheck() {
+    $('#myBoard .square-55d63').removeClass('in-check');
+    if (game && typeof game.in_check === 'function' && game.in_check()) {
+        let boardMatrix = game.board();
+        let turn = game.turn();
+        let files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                let piece = boardMatrix[r][c];
+                if (piece && piece.type === 'k' && piece.color === turn) {
+                    let square = files[c] + (8 - r);
+                    $('#myBoard .square-' + square).addClass('in-check');
+                    return;
+                }
+            }
+        }
+    }
+}
+
+function highlightLegalMoves(square) {
+    clearHighlights();
+    selectedSquare = square;
+
+    $('#myBoard .square-' + square).addClass('selected-square');
+
+    let moves = game.moves({ square: square, verbose: true });
+    moves.forEach(function(m) {
+        let $target = $('#myBoard .square-' + m.to);
+        if (m.captured) {
+            $target.addClass('legal-capture');
+        } else {
+            $target.addClass('legal-move');
+        }
+    });
+}
+
 function setupClickToMove() {
-    // Unbind previous clicks to avoid double-triggers
     $(document).off('click', '#myBoard .square-55d63');
 
-    $(document).on('click', '#myBoard .square-55d63', function() {
+    $(document).on('click', '#myBoard .square-55d63', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
         if (!gameActive || botThinking) return;
 
         let square = $(this).attr('data-square');
@@ -1656,16 +1680,21 @@ function setupClickToMove() {
 
         let pieceOnSquare = game.get(square);
 
-        // CASE 1: A piece was already selected, and user clicks a square to move
+        // 1. Destination clicked while a piece is currently selected
         if (selectedSquare) {
-            // If clicking the same piece again, cancel selection
             if (selectedSquare === square) {
                 clearHighlights();
                 selectedSquare = null;
                 return;
             }
 
-            // Attempt move
+            // If switching to another piece of own color
+            if (pieceOnSquare && pieceOnSquare.color === game.turn()) {
+                highlightLegalMoves(square);
+                return;
+            }
+
+            // Attempt move execution
             let move = game.move({
                 from: selectedSquare,
                 to: square,
@@ -1673,7 +1702,6 @@ function setupClickToMove() {
             });
 
             if (move) {
-                // Legal move completed!
                 board.position(game.fen());
                 clearHighlights();
                 selectedSquare = null;
@@ -1691,7 +1719,7 @@ function setupClickToMove() {
             }
         }
 
-        // CASE 2: Selecting a new piece of the current player's color
+        // 2. Initial selection of own piece
         if (pieceOnSquare && (pieceOnSquare.color === game.turn() || currentMode === 'pvp')) {
             highlightLegalMoves(square);
         } else {
@@ -1700,6 +1728,20 @@ function setupClickToMove() {
         }
     });
 }
+
+// Board Configuration Block
+const config = {
+    draggable: true,
+    position: 'start',
+    onDragStart: onDragStart,
+    onDrop: onDrop,
+    onSnapEnd: function() {
+        board.position(game.fen());
+        clearHighlights();
+        highlightCheck();
+    },
+    pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
+};
 
 function rebuildMoveTable() {
     let tbody = document.getElementById('move-tbody');
