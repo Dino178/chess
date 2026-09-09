@@ -78,6 +78,7 @@ button:disabled { background: #3a3c42 !important; cursor: not-allowed; opacity: 
 .badge-num { font-size: 14px; font-weight: bold; margin: 2px 0; }
 .badge-label { font-size: 9px; color: #aaa; }
 
+.badge-card.book { border-color: #a88b68; } .badge-card.book .badge-icon { color: #a88b68; }
 .badge-card.brilliant { border-color: #1ba599; } .badge-card.brilliant .badge-icon { color: #1ba599; }
 .badge-card.great { border-color: #5c8bb0; } .badge-card.great .badge-icon { color: #5c8bb0; }
 .badge-card.best { border-color: #95b645; } .badge-card.best .badge-icon { color: #95b645; }
@@ -98,68 +99,22 @@ th { color: #8e9297; border-bottom: 1px solid #40444b; padding-bottom: 3px; }
 td { padding: 3px 0; }
 .friend-row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; padding: 3px 6px; background: #26282c; margin-bottom: 3px; border-radius: 4px; }
 
-/* Board Highlights */
-.legal-move { position: relative; }
-.legal-move::after { content: ''; position: absolute; width: 30%; height: 30%; background: rgba(0,0,0,0.35); border-radius: 50%; top: 35%; left: 35%; pointer-events: none; }
-.in-check { box-shadow: inset 0 0 25px rgba(255, 0, 0, 0.9) !important; }
-.selected-square { box-shadow: inset 0 0 15px rgba(241, 196, 15, 0.9) !important; background: rgba(241, 196, 15, 0.25) !important; }
-
 /* Themes */
 .theme-green .white-1e1d7 { background-color: #eeeed2; color: #769656; } .theme-green .black-3c85d { background-color: #769656; color: #eeeed2; }
 .theme-wood .white-1e1d7 { background-color: #f0d9b5; color: #b58863; } .theme-wood .black-3c85d { background-color: #b58863; color: #f0d9b5; }
 .theme-midnight .white-1e1d7 { background-color: #ced4da; color: #495057; } .theme-midnight .black-3c85d { background-color: #495057; color: #ced4da; }
-/* Chess.com-style legal move hints */
-.square-55d63 {
-    position: relative;
-}
 
-/* Empty square destination dot */
-.square-55d63.legal-move::before {
-    content: "";
-    position: absolute;
-    width: 24%;
-    height: 24%;
-    top: 38%;
-    left: 38%;
-    background: rgba(0, 0, 0, 0.25);
-    border-radius: 50%;
-    pointer-events: none;
-    z-index: 2;
-}
-
-/* Capture target ring on enemy pieces */
-.square-55d63.legal-capture::before {
-    content: "";
-    position: absolute;
-    width: 80%;
-    height: 80%;
-    top: 10%;
-    left: 10%;
-    border: 4px solid rgba(0, 0, 0, 0.25);
-    border-radius: 50%;
-    box-sizing: border-box;
-    pointer-events: none;
-    z-index: 2;
-}
-
-/* Yellow highlight on the active selected piece */
-.square-55d63.selected-square {
-    background-color: rgba(255, 255, 0, 0.4) !important;
-}
 /* ================================================================= */
-/* CHESS.COM CLICK-TO-MOVE HIGHLIGHTS & POINTER PASS-THROUGH         */
+/* SINGLE, CLEAN CHESS.COM CLICK-TO-MOVE HIGHLIGHT IMPLEMENTATION   */
 /* ================================================================= */
-
-/* Allow clicks to penetrate through piece images to reach the square container */
-#myBoard img {
-    pointer-events: none !important;
-    user-select: none !important;
-}
-
-/* Ensure chessboard squares serve as positioning contexts for dots & rings */
 #myBoard .square-55d63 {
     position: relative !important;
     cursor: pointer;
+}
+
+/* Yellow selection highlight on active piece */
+#myBoard .square-55d63.selected-square {
+    background-color: rgba(241, 196, 15, 0.65) !important;
 }
 
 /* Empty square destination dot */
@@ -170,9 +125,9 @@ td { padding: 3px 0; }
     height: 26%;
     top: 37%;
     left: 37%;
-    background: rgba(0, 0, 0, 0.28);
+    background: rgba(0, 0, 0, 0.32);
     border-radius: 50%;
-    z-index: 10;
+    z-index: 50;
     pointer-events: none;
 }
 
@@ -184,19 +139,14 @@ td { padding: 3px 0; }
     height: 84%;
     top: 8%;
     left: 8%;
-    border: 5px solid rgba(0, 0, 0, 0.3);
+    border: 5px solid rgba(0, 0, 0, 0.32);
     border-radius: 50%;
     box-sizing: border-box;
-    z-index: 10;
+    z-index: 50;
     pointer-events: none;
 }
 
-/* Selected piece square highlight */
-#myBoard .square-55d63.selected-square {
-    background-color: rgba(241, 196, 15, 0.6) !important;
-}
-
-/* Radial gradient check indicator */
+/* Radial gradient check glow on king */
 #myBoard .square-55d63.in-check {
     background: radial-gradient(ellipse at center, rgba(255, 0, 0, 0.85) 0%, rgba(231, 76, 60, 0.5) 45%, rgba(169, 50, 38, 0) 89%) !important;
 }
