@@ -1729,20 +1729,6 @@ function setupClickToMove() {
     });
 }
 
-// Board Configuration Block
-const config = {
-    draggable: true,
-    position: 'start',
-    onDragStart: onDragStart,
-    onDrop: onDrop,
-    onSnapEnd: function() {
-        board.position(game.fen());
-        clearHighlights();
-        highlightCheck();
-    },
-    pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
-};
-
 function rebuildMoveTable() {
     let tbody = document.getElementById('move-tbody');
     tbody.innerHTML = '';
