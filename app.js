@@ -1546,33 +1546,39 @@ function setupClickToMove() {
 }
 
 function onDragStart(source, piece) {
-    if (!gameActive || game.game_over() || botThinking) {
-        return false;
-    }
+    if (!gameActive || game.game_over() || botThinking) return false;
     let isMyTurn = (game.turn() === myPlayerColor) || currentMode === 'pvp';
-    if (!isMyTurn) {
-        return false;
-    }
+    if (!isMyTurn) return false;
+
+    // Show the legal move dots as soon as dragging begins
     highlightLegalMoves(source);
     return game.moves({ square: source }).length > 0;
 }
 
 function onDrop(source, target) {
-    clearHighlights();
-    selectedSquare = null;
+    // If piece was released on the same square (a stationary click), KEEP the dots visible!
+    if (source === target) {
+        return;
+    }
+
     let move = game.move({ from: source, to: target, promotion: 'q' });
     if (move === null) {
+        // If dropped on an illegal destination, retain the selection dots
         return 'snapback';
     }
+
+    // A legal move was executed: clear dots and process move
+    clearHighlights();
+    selectedSquare = null;
     handleMoveVisuals(move, false);
-    if (currentMode === 'online' && matchRef) {
-        matchRef.update({ fen: game.fen(), lastMove: move.san, turn: game.turn() });
-    }
+
     if (gameActive && game.turn() !== myPlayerColor && currentMode !== 'pvp') {
         botThinking = true;
         setTimeout(triggerBot, 250);
     }
 }
+
+
 
 function handleMoveVisuals(move, isSync) {
     if (game.in_checkmate() || game.game_over()) {
