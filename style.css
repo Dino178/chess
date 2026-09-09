@@ -108,3 +108,41 @@ td { padding: 3px 0; }
 .theme-green .white-1e1d7 { background-color: #eeeed2; color: #769656; } .theme-green .black-3c85d { background-color: #769656; color: #eeeed2; }
 .theme-wood .white-1e1d7 { background-color: #f0d9b5; color: #b58863; } .theme-wood .black-3c85d { background-color: #b58863; color: #f0d9b5; }
 .theme-midnight .white-1e1d7 { background-color: #ced4da; color: #495057; } .theme-midnight .black-3c85d { background-color: #495057; color: #ced4da; }
+/* Chess.com-style legal move hints */
+.square-55d63 {
+    position: relative;
+}
+
+/* Empty square destination dot */
+.square-55d63.legal-move::before {
+    content: "";
+    position: absolute;
+    width: 24%;
+    height: 24%;
+    top: 38%;
+    left: 38%;
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* Capture target ring on enemy pieces */
+.square-55d63.legal-capture::before {
+    content: "";
+    position: absolute;
+    width: 80%;
+    height: 80%;
+    top: 10%;
+    left: 10%;
+    border: 4px solid rgba(0, 0, 0, 0.25);
+    border-radius: 50%;
+    box-sizing: border-box;
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* Yellow highlight on the active selected piece */
+.square-55d63.selected-square {
+    background-color: rgba(255, 255, 0, 0.4) !important;
+}
