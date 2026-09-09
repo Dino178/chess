@@ -1621,28 +1621,84 @@ function handleMoveVisuals(move, isSync) {
 function highlightLegalMoves(square) {
     clearHighlights();
     selectedSquare = square;
+
+    // Highlight the clicked piece's square
     $('#myBoard .square-' + square).addClass('selected-square');
-    game.moves({ square: square, verbose: true }).forEach(function(m) {
-        $('#myBoard .square-' + m.to).addClass('legal-move');
+
+    // Get all valid moves for this piece from chess.js
+    let moves = game.moves({ square: square, verbose: true });
+    moves.forEach(function(m) {
+        let $sq = $('#myBoard .square-' + m.to);
+        if (m.captured) {
+            $sq.addClass('legal-capture');
+        } else {
+            $sq.addClass('legal-move');
+        }
     });
 }
 
 function clearHighlights() {
-    $('#myBoard .square-55d63').removeClass('legal-move in-check selected-square');
+    $('#myBoard .square-55d63').removeClass('legal-move legal-capture selected-square');
 }
 
-function highlightCheck() {
-    if (game.in_check()) {
-        let b = game.board();
-        let col = game.turn();
-        for (let r = 0; r < 8; r++) {
-            for (let c = 0; c < 8; c++) {
-                if (b[r][c] && b[r][c].type === 'k' && b[r][c].color === col) {
-                    $('#myBoard .square-' + ('abcdefgh'[c] + (8 - r))).addClass('in-check');
+function setupClickToMove() {
+    // Unbind previous clicks to avoid double-triggers
+    $(document).off('click', '#myBoard .square-55d63');
+
+    $(document).on('click', '#myBoard .square-55d63', function() {
+        if (!gameActive || botThinking) return;
+
+        let square = $(this).attr('data-square');
+        if (!square) return;
+
+        let isMyTurn = (game.turn() === myPlayerColor) || currentMode === 'pvp';
+        if (!isMyTurn) return;
+
+        let pieceOnSquare = game.get(square);
+
+        // CASE 1: A piece was already selected, and user clicks a square to move
+        if (selectedSquare) {
+            // If clicking the same piece again, cancel selection
+            if (selectedSquare === square) {
+                clearHighlights();
+                selectedSquare = null;
+                return;
+            }
+
+            // Attempt move
+            let move = game.move({
+                from: selectedSquare,
+                to: square,
+                promotion: 'q'
+            });
+
+            if (move) {
+                // Legal move completed!
+                board.position(game.fen());
+                clearHighlights();
+                selectedSquare = null;
+                handleMoveVisuals(move, false);
+
+                if (currentMode === 'online' && matchRef) {
+                    matchRef.update({ fen: game.fen(), lastMove: move.san, turn: game.turn() });
                 }
+
+                if (gameActive && game.turn() !== myPlayerColor && currentMode !== 'pvp') {
+                    botThinking = true;
+                    setTimeout(triggerBot, 250);
+                }
+                return;
             }
         }
-    }
+
+        // CASE 2: Selecting a new piece of the current player's color
+        if (pieceOnSquare && (pieceOnSquare.color === game.turn() || currentMode === 'pvp')) {
+            highlightLegalMoves(square);
+        } else {
+            clearHighlights();
+            selectedSquare = null;
+        }
+    });
 }
 
 function rebuildMoveTable() {
