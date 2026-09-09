@@ -146,3 +146,57 @@ td { padding: 3px 0; }
 .square-55d63.selected-square {
     background-color: rgba(255, 255, 0, 0.4) !important;
 }
+/* ================================================================= */
+/* CHESS.COM CLICK-TO-MOVE HIGHLIGHTS & POINTER PASS-THROUGH         */
+/* ================================================================= */
+
+/* Allow clicks to penetrate through piece images to reach the square container */
+#myBoard img {
+    pointer-events: none !important;
+    user-select: none !important;
+}
+
+/* Ensure chessboard squares serve as positioning contexts for dots & rings */
+#myBoard .square-55d63 {
+    position: relative !important;
+    cursor: pointer;
+}
+
+/* Empty square destination dot */
+#myBoard .square-55d63.legal-move::before {
+    content: "";
+    position: absolute;
+    width: 26%;
+    height: 26%;
+    top: 37%;
+    left: 37%;
+    background: rgba(0, 0, 0, 0.28);
+    border-radius: 50%;
+    z-index: 10;
+    pointer-events: none;
+}
+
+/* Capture target ring on opponent pieces */
+#myBoard .square-55d63.legal-capture::before {
+    content: "";
+    position: absolute;
+    width: 84%;
+    height: 84%;
+    top: 8%;
+    left: 8%;
+    border: 5px solid rgba(0, 0, 0, 0.3);
+    border-radius: 50%;
+    box-sizing: border-box;
+    z-index: 10;
+    pointer-events: none;
+}
+
+/* Selected piece square highlight */
+#myBoard .square-55d63.selected-square {
+    background-color: rgba(241, 196, 15, 0.6) !important;
+}
+
+/* Radial gradient check indicator */
+#myBoard .square-55d63.in-check {
+    background: radial-gradient(ellipse at center, rgba(255, 0, 0, 0.85) 0%, rgba(231, 76, 60, 0.5) 45%, rgba(169, 50, 38, 0) 89%) !important;
+}
