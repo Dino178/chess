@@ -13,7 +13,6 @@ const firebaseConfig = {
 };
 
 
-
 let auth = null;
 let db = null;
 let firestore = null;
@@ -35,7 +34,7 @@ if (typeof firebase !== 'undefined' && firebaseConfig.apiKey && firebaseConfig.a
     }
 }
 
-// Local Guest Storage
+// Local Guest Storage & Fallback Profile Setup
 let guestProfile = JSON.parse(localStorage.getItem('chessGuestProfile')) || {
     username: "Student_" + Math.floor(1000 + Math.random() * 9000),
     friends: []
@@ -66,10 +65,10 @@ function playSound(type) {
 }
 
 // =================================================================
-// 2. COMPLETE ORIGINAL BOT ROSTER (40+ BOTS FULLY EXPANDED)
+// 2. COMPLETE BOT ROSTER (40+ BOTS WITH FULL DIALOGUES & LOGIC)
 // =================================================================
 const allBots = [];
-function addBot(id, name, elo, type, category, handler) {
+function addBot(id, name, elo, type, category, dialogues, handler) {
     if (handler === undefined) {
         handler = null;
     }
@@ -79,97 +78,383 @@ function addBot(id, name, elo, type, category, handler) {
         elo: elo,
         type: type,
         category: category,
+        dialogues: dialogues,
         handler: handler
     });
 }
 
-// 1. Standard Tiered Ladder (100 -> 3200)
-addBot("bot_sprout", "Sprout", 100, "ladder", "Beginner");
-addBot("bot_toby", "Toby", 200, "ladder", "Beginner");
-addBot("bot_finley", "Finley", 300, "ladder", "Beginner");
-addBot("bot_milo", "Milo", 400, "ladder", "Beginner");
-addBot("bot_jasper", "Jasper", 500, "ladder", "Casual");
-addBot("bot_sienna", "Sienna", 600, "ladder", "Casual");
-addBot("bot_rowan", "Rowan", 700, "ladder", "Casual");
-addBot("bot_bruno", "Bruno", 800, "ladder", "Intermediate");
-addBot("bot_chloe", "Chloe", 900, "ladder", "Intermediate");
-addBot("bot_darius", "Darius", 1000, "ladder", "Intermediate");
-addBot("bot_astrid", "Astrid", 1100, "ladder", "Club");
-addBot("bot_mateo", "Mateo", 1200, "ladder", "Club");
-addBot("bot_korra", "Korra", 1300, "ladder", "Club");
-addBot("bot_selena", "Selena", 1400, "ladder", "Advanced");
-addBot("bot_alder", "Alder", 1500, "ladder", "Advanced");
-addBot("bot_nadia", "Nadia", 1600, "ladder", "Advanced");
-addBot("bot_orion", "Orion", 1700, "ladder", "Expert");
-addBot("bot_valen", "Valen", 1800, "ladder", "Expert");
-addBot("bot_cassian", "Cassian", 1900, "ladder", "Expert");
-addBot("bot_lyra", "Lyra", 2000, "ladder", "Master");
-addBot("bot_marcus", "Marcus", 2200, "ladder", "Master");
-addBot("bot_kaito", "Kaito", 2400, "ladder", "International Master");
-addBot("bot_artemis", "Artemis", 2600, "ladder", "Grandmaster");
-addBot("bot_solaris", "Solaris", 2800, "ladder", "Super Grandmaster");
-addBot("bot_stockfishmax", "Titan Core", 3200, "ladder", "Engine Maximum");
-
-// 2. Personality Piece Specialists
-addBot("pers_pippa", "Pippa (Pawn Specialist)", 100, "personality", "Personality", function(moves) {
-    let favs = moves.filter(function(m) { return m.piece === 'p'; });
-    if (favs.length > 0 && Math.random() < 0.75) {
-        return favs[Math.floor(Math.random() * favs.length)];
-    }
-    return null;
-});
-addBot("pers_rex", "Rex (King Explorer)", 250, "personality", "Personality", function(moves) {
-    let favs = moves.filter(function(m) { return m.piece === 'k'; });
-    if (favs.length > 0 && Math.random() < 0.75) {
-        return favs[Math.floor(Math.random() * favs.length)];
-    }
-    return null;
-});
-addBot("pers_rampart", "Rampart (Rook Fortress)", 1000, "personality", "Personality", function(moves) {
-    let favs = moves.filter(function(m) { return m.piece === 'r'; });
-    if (favs.length > 0 && Math.random() < 0.75) {
-        return favs[Math.floor(Math.random() * favs.length)];
-    }
-    return null;
-});
-addBot("pers_basil", "Basil (Bishop Fanatic)", 1150, "personality", "Personality", function(moves) {
-    let favs = moves.filter(function(m) { return m.piece === 'b'; });
-    if (favs.length > 0 && Math.random() < 0.75) {
-        return favs[Math.floor(Math.random() * favs.length)];
-    }
-    return null;
-});
-addBot("pers_valkyrie", "Valkyrie (Queen Striker)", 1250, "personality", "Personality", function(moves) {
-    let favs = moves.filter(function(m) { return m.piece === 'q'; });
-    if (favs.length > 0 && Math.random() < 0.75) {
-        return favs[Math.floor(Math.random() * favs.length)];
-    }
-    return null;
-});
-addBot("pers_gallop", "Sir Gallop (Knight Hopper)", 1350, "personality", "Personality", function(moves) {
-    let favs = moves.filter(function(m) { return m.piece === 'n'; });
-    if (favs.length > 0 && Math.random() < 0.75) {
-        return favs[Math.floor(Math.random() * favs.length)];
-    }
-    return null;
+// 50 ELO EXTREMELY ARROGANT MEME BOT
+addBot("bot_dunning", "Lord Dunning (50)", 50, "personality", "Hyper-Arrogant", {
+    start: [
+        "Bow down! You are playing against an undefeated theoretical deity.",
+        "I will checkmate you in 3 moves without even looking at the screen.",
+        "Prepare yourself. Grandmasters cry when they see my pawn structures.",
+        "Your resignation will be accepted whenever you realize my greatness."
+    ],
+    take: [
+        "All calculated. That piece was simply cluttering my imperial conquest.",
+        "You fell for my master trap! Taking my pieces only speeds up your demise!",
+        "A peasant takes a coin, while a king prepares the guillotine. You are doomed!",
+        "Did you really think that piece was safe from my omniscient vision?"
+    ],
+    losePiece: [
+        "A brilliant tactical sacrifice! You fell directly into my 47-move trap!",
+        "I gave you that piece out of royal pity. Don't flatter yourself.",
+        "My king operates on a higher dimension. That piece was a double-agent anyway.",
+        "Material is an illusion for weak minds. My positional mastery is absolute!"
+    ],
+    check: [
+        "CHECK! Kneel before your grand emperor!",
+        "Feel the raw fury of an absolute chess deity! Surrender now!",
+        "Tremble! Your king's reign ends this very second!"
+    ],
+    win: [
+        "HAHAHA! Too easy! Go read a book and never challenge a god again!",
+        "Flawless perfection! Another historic masterpiece written by Lord Dunning!",
+        "I didn't even use 1% of my cerebral capacity to dismantle you."
+    ],
+    lose: [
+        "WHAT?! My mouse glitched! My cat jumped on the keyboard! You CHEATED!",
+        "This game was clearly rigged by the developers. My true rating is 3500!",
+        "A fluke! I demand an immediate rematch, peasant!",
+        "The board lighting was uneven! This match does not count in official archives!"
+    ]
+}, function(moves) {
+    return moves[Math.floor(Math.random() * moves.length)];
 });
 
-// 3. Strategic & Behavioral Archetypes
-addBot("beh_vanguard", "Vanguard (Berserker)", 800, "behavior", "Aggressive", function(moves) {
+// Standard Tiered Ladder (100 -> 3200)
+addBot("bot_sprout", "Sprout", 100, "ladder", "Beginner", {
+    start: ["Hi! I'm still learning how the horse jumps!", "Are we playing checkers or chess?"],
+    take: ["Yay! I got one!", "Look what I found!"],
+    losePiece: ["Oh no, where did my piece go?", "Wait, I didn't see that!"],
+    check: ["Check! Am I winning yet?", "Beep boop, king in trouble!"],
+    win: ["I won?! That was so fun!", "Yay! My hard work paid off!"],
+    lose: ["Good game! You are very good at this!", "Aww, good try by me though!"]
+});
+
+addBot("bot_toby", "Toby", 200, "ladder", "Beginner", {
+    start: ["Let's play! My big brother taught me chess yesterday."],
+    take: ["I like eating pieces!"],
+    losePiece: ["Hey, give that back!"],
+    check: ["Check! Watch out!"],
+    win: ["I did it! I'm telling my mom!"],
+    lose: ["Can we play again? Please?"]
+});
+
+addBot("bot_finley", "Finley", 300, "ladder", "Beginner", {
+    start: ["I'm going to push all my pawns forward!"],
+    take: ["Nom nom nom, captured!"],
+    losePiece: ["Oops! Didn't see that bishop sneak up."],
+    check: ["Check! Move your king!"],
+    win: ["Pawn power wins the day!"],
+    lose: ["Ah, I left my back rank open."]
+});
+
+addBot("bot_milo", "Milo", 400, "ladder", "Beginner", {
+    start: ["I know what castling is now, prepare yourself!"],
+    take: ["Snagged it!"],
+    losePiece: ["Wait, was that square guarded?"],
+    check: ["Check! King on the run!"],
+    win: ["Clean win! I'm getting better every day."],
+    lose: ["I really need to stop hanging my rooks."]
+});
+
+addBot("bot_jasper", "Jasper", 500, "ladder", "Casual", {
+    start: ["Let's have a nice casual game."],
+    take: ["Got one of your pieces!"],
+    losePiece: ["Ah, miscalculated that exchange."],
+    check: ["Check to your king!"],
+    win: ["Great game, thanks for playing!"],
+    lose: ["Nice one! You saw right through my defense."]
+});
+
+addBot("bot_sienna", "Sienna", 600, "ladder", "Casual", {
+    start: ["Good luck! Let's have a clean and fun game."],
+    take: ["Material secured!"],
+    losePiece: ["Ah, tactical oversight on my part."],
+    check: ["Check! Keep your king safe."],
+    win: ["Nice game! Good match."],
+    lose: ["Well played! Your tactics were sharp."]
+});
+
+addBot("bot_rowan", "Rowan", 700, "ladder", "Casual", {
+    start: ["I've been studying open games lately."],
+    take: ["Trading into an open file."],
+    losePiece: ["Good vision, I missed that square."],
+    check: ["Check! How will you block?"],
+    win: ["Good battle! Keep practicing!"],
+    lose: ["Tough loss for me, great tactics!"]
+});
+
+addBot("bot_bruno", "Bruno (Brawler)", 800, "ladder", "Intermediate", {
+    start: ["No quiet games here. Prepare for a brawl!"],
+    take: ["SMASH! That's off the board!"],
+    losePiece: ["Just a scratch. Attack continues!"],
+    check: ["CHECK! Nowhere to hide!"],
+    win: ["Total knockout! Better luck next time."],
+    lose: ["You weathered the storm. Respect."]
+});
+
+addBot("bot_chloe", "Chloe", 900, "ladder", "Intermediate", {
+    start: ["I love dynamic tactical play. Let's see your ideas."],
+    take: ["That tactic worked nicely."],
+    losePiece: ["Ouch, did I miscalculate?"],
+    check: ["Check! Defend your monarch."],
+    win: ["Checkmate! Beautiful coordination."],
+    lose: ["Oof, you outplayed me in the middle game."]
+});
+
+addBot("bot_darius", "Darius", 1000, "ladder", "Intermediate", {
+    start: ["A thousand Elo is where real chess begins."],
+    take: ["Trading down into an advantage."],
+    losePiece: ["A careless mistake. I will fight on."],
+    check: ["Check! Watch your diagonals."],
+    win: ["Solid fundamentals win games."],
+    lose: ["Impressive tactical vision from you."]
+});
+
+addBot("bot_astrid", "Astrid", 1100, "ladder", "Club", {
+    start: ["I love classical pawn structures. Let's begin."],
+    take: ["Capturing toward the center."],
+    losePiece: ["Strong move. You caught me off guard."],
+    check: ["Check! The center opens up."],
+    win: ["Patience and structure prevail."],
+    lose: ["You dismantled my center completely!"]
+});
+
+addBot("bot_mateo", "Mateo", 1200, "ladder", "Club", {
+    start: ["Let's test your opening repertoire."],
+    take: ["Exchanging down."],
+    losePiece: ["You found a really neat tactic there."],
+    check: ["Check! Careful now."],
+    win: ["Precision and patience."],
+    lose: ["I got outplayed. Excellent performance!"]
+});
+
+addBot("bot_korra", "Korra", 1300, "ladder", "Club", {
+    start: ["I fight for every single square on the board."],
+    take: ["Snagging key material."],
+    losePiece: ["A sharp blow, but the fight is not over."],
+    check: ["Check! Feel the pressure!"],
+    win: ["Tenacity wins the fight!"],
+    lose: ["You outmaneuvered me cleanly. Good game!"]
+});
+
+addBot("bot_selena", "Selena", 1400, "ladder", "Advanced", {
+    start: ["I don't leave tactical weaknesses unpunished."],
+    take: ["Punishing your loose piece."],
+    losePiece: ["Sharp calculation. I didn't foresee that resource."],
+    check: ["Check! Your king safety is compromised."],
+    win: ["A textbook conversion."],
+    lose: ["Fantastic play. You belong in a tournament hall."]
+});
+
+addBot("bot_alder", "Alder", 1500, "ladder", "Advanced", {
+    start: ["Calculation and prophylaxis will decide this encounter."],
+    take: ["Eliminating your active defender."],
+    losePiece: ["Very deep vision. Well calculated."],
+    check: ["Check. King position degraded."],
+    win: ["Strategic advantages converted smoothly."],
+    lose: ["I yielded the initiative. Well played!"]
+});
+
+addBot("bot_nadia", "Nadia", 1600, "ladder", "Advanced", {
+    start: ["Positional harmony is the key to chess mastery."],
+    take: ["Target acquired and eliminated."],
+    losePiece: ["Deep counterplay. Very impressive."],
+    check: ["Check! The pressure mounts."],
+    win: ["Controlled from start to finish."],
+    lose: ["You dismantled my setup completely. Bravo!"]
+});
+
+addBot("bot_orion", "Orion", 1700, "ladder", "Expert", {
+    start: ["The initiative is everything in modern chess."],
+    take: ["Striking the weak point."],
+    losePiece: ["An unexpected tactical turnaround!"],
+    check: ["Check! King safety compromised."],
+    win: ["The initiative carried through to victory."],
+    lose: ["You refuted my attack with absolute precision."]
+});
+
+addBot("bot_valen", "Valen", 1800, "ladder", "Expert", {
+    start: ["Expect relentless pressure on every weak square."],
+    take: ["Liquidating into a winning endgame."],
+    losePiece: ["Brilliant resource! I have to defend carefully."],
+    check: ["Check! The net tightens."],
+    win: ["Flawless execution."],
+    lose: ["A masterclass. You played with incredible precision."]
+});
+
+addBot("bot_cassian", "Cassian", 1900, "ladder", "Expert", {
+    start: ["Every master game is won in the transition from middlegame to endgame."],
+    take: ["Precise simplification."],
+    losePiece: ["You found the only defensive resource."],
+    check: ["Check. The endgame approaches."],
+    win: ["Technical conversion complete."],
+    lose: ["Flawless endgame play on your end."]
+});
+
+addBot("bot_lyra", "Lyra", 2000, "ladder", "Master", {
+    start: ["Welcome to candidate master territory."],
+    take: ["Structural damage inflicted."],
+    losePiece: ["Superb tactical acuity."],
+    check: ["Check. Escape squares restricted."],
+    win: ["Calculated from move fifteen."],
+    lose: ["Outstanding. You played like a titled master."]
+});
+
+addBot("bot_marcus", "Marcus", 2200, "ladder", "Master", {
+    start: ["National master precision ready. Make your opening move."],
+    take: ["The position crumbles."],
+    losePiece: ["A profound concept. Commendable."],
+    check: ["Check. Defensive lines collapsing."],
+    win: ["Checkmate. Precision above all."],
+    lose: ["A brilliant victory for you. Well earned."]
+});
+
+addBot("bot_kaito", "Kaito", 2400, "ladder", "International Master", {
+    start: ["International master standard. No inaccuracies forgiven."],
+    take: ["Critical piece removed."],
+    losePiece: ["Exceptional Grandmaster-tier idea."],
+    check: ["Check. Defenses breached."],
+    win: ["Dominant coordination."],
+    lose: ["Magnificent play. You deserve an IM norm."]
+});
+
+addBot("bot_artemis", "Artemis", 2600, "ladder", "Grandmaster", {
+    start: ["Greetings. Let us create something worthy of an anthology."],
+    take: ["A concrete concession on your end."],
+    losePiece: ["Fascinating complication."],
+    check: ["Check. The defensive task is insurmountable."],
+    win: ["Grandmaster precision. Thank you for the duel."],
+    lose: ["Magnificent. Truly magnificent calculation."]
+});
+
+addBot("bot_solaris", "Solaris", 2800, "ladder", "Super Grandmaster", {
+    start: ["Super Grandmaster rating active. Perfection is required."],
+    take: ["Inaccuracy punished immediately."],
+    losePiece: ["An extraordinary stroke of genius."],
+    check: ["Check. Mate is imminent."],
+    win: ["Flawless technique."],
+    lose: ["Incredible. You have defeated a 2800 player."]
+});
+
+addBot("bot_stockfishmax", "Titan Core", 3200, "ladder", "Engine Maximum", {
+    start: ["Stockfish evaluation depth 30 engaged."],
+    take: ["Centipawn differential optimal."],
+    losePiece: ["Evaluating counter-threat lines."],
+    check: ["Check. Mate in 12 identified."],
+    win: ["Evaluation complete. Engine victory assured."],
+    lose: ["Hardware anomaly detected. You defeated the engine."]
+});
+
+// Personality Specialists
+addBot("pers_pippa", "Pam (Pawn Pusher)", 100, "personality", "Personality", {
+    start: ["My pawns will destroy you with ease."],
+    take: ["Pawn capture!"],
+    losePiece: ["Brilliant Sacrifice!"],
+    check: ["Check! Look at that!"],
+    win: ["My pawn easily destroyed you!"],
+    lose: ["I misclicked my pawns and thats why I lost. Play another game and I'll win!"]
+}, function(moves) {
+    let pMoves = moves.filter(function(m) { return m.piece === 'p'; });
+    return (pMoves.length > 0 && Math.random() < 0.8) ? pMoves[Math.floor(Math.random() * pMoves.length)] : null;
+});
+
+addBot("pers_rex", "Rex (King Explorer)", 250, "personality", "Personality", {
+    start: ["A king leads from the front! Let's march!"],
+    take: ["The king claims his spoils!"],
+    losePiece: ["A loyal soldier has fallen for the crown!"],
+    check: ["Check! Make way for his majesty!"],
+    win: ["The warrior king reigns supreme!"],
+    lose: ["My royal march ended in tragedy!"]
+}, function(moves) {
+    let kMoves = moves.filter(function(m) { return m.piece === 'k'; });
+    return (kMoves.length > 0 && Math.random() < 0.75) ? kMoves[Math.floor(Math.random() * kMoves.length)] : null;
+});
+
+addBot("pers_rampart", "Rampart (Rook Fortress)", 1000, "personality", "Personality", {
+    start: ["Rooks belong on open files. Watch my cannons roar!"],
+    take: ["Blast through! Rook takes!"],
+    losePiece: ["My fortress wall has been breached!"],
+    check: ["Check along the rank!"],
+    win: ["Checkmate on the seventh rank!"],
+    lose: ["My cannons were outmaneuvered!"]
+}, function(moves) {
+    let rMoves = moves.filter(function(m) { return m.piece === 'r'; });
+    return (rMoves.length > 0 && Math.random() < 0.75) ? rMoves[Math.floor(Math.random() * rMoves.length)] : null;
+});
+
+addBot("pers_basil", "Basil (Bishop Fanatic)", 1150, "personality", "Personality", {
+    start: ["The bishop pair is worth more than gold!"],
+    take: ["Sniper strike across the diagonal!"],
+    losePiece: ["Not my clergy! A tragic loss."],
+    check: ["Long-diagonal check!"],
+    win: ["Checkmate across the board!"],
+    lose: ["Blocked diagonals proved my undoing."]
+}, function(moves) {
+    let bMoves = moves.filter(function(m) { return m.piece === 'b'; });
+    return (bMoves.length > 0 && Math.random() < 0.75) ? bMoves[Math.floor(Math.random() * bMoves.length)] : null;
+});
+
+addBot("pers_valkyrie", "Valkyrie (Queen Striker)", 1250, "personality", "Personality", {
+    start: ["My Queen rules this board. Beware her wrath!"],
+    take: ["Struck down by the Queen!"],
+    losePiece: ["Impossible! My Queen was caught?!"],
+    check: ["Check from the Queen herself!"],
+    win: ["Kneel before the royal strike!"],
+    lose: ["A tragic fall for my royal armada."]
+}, function(moves) {
+    let qMoves = moves.filter(function(m) { return m.piece === 'q'; });
+    return (qMoves.length > 0 && Math.random() < 0.75) ? qMoves[Math.floor(Math.random() * qMoves.length)] : null;
+});
+
+addBot("pers_gallop", "Sir Gallop (Knight Hopper)", 1350, "personality", "Personality", {
+    start: ["Outposts and forks! My cavalry will jump everywhere!"],
+    take: ["Forked and captured!"],
+    losePiece: ["My steed was unseated!"],
+    check: ["Royal knight check!"],
+    win: ["A glorious cavalry charge!"],
+    lose: ["Unpinned and dismounted. Good game!"]
+}, function(moves) {
+    let nMoves = moves.filter(function(m) { return m.piece === 'n'; });
+    return (nMoves.length > 0 && Math.random() < 0.75) ? nMoves[Math.floor(Math.random() * nMoves.length)] : null;
+});
+
+// Strategic Archetypes
+addBot("beh_vanguard", "Vanguard (Berserker)", 800, "behavior", "Aggressive", {
+    start: ["Blood and captures! I will take every piece you offer!"],
+    take: ["BLOOD! Captured!"],
+    losePiece: ["Doesn't matter, ATTACK!"],
+    check: ["CHECK! FEEL THE FURY!"],
+    win: ["Decimated!"],
+    lose: ["I burned out in glory!"]
+}, function(moves) {
     let caps = moves.filter(function(m) { return m.captured; });
-    if (caps.length > 0 && Math.random() < 0.85) {
-        return caps[Math.floor(Math.random() * caps.length)];
-    }
-    return null;
+    return (caps.length > 0 && Math.random() < 0.85) ? caps[Math.floor(Math.random() * caps.length)] : null;
 });
-addBot("beh_zenith", "Zenith (Pacifist)", 900, "behavior", "Positional", function(moves) {
+
+addBot("beh_zenith", "Zenith (Pacifist)", 900, "behavior", "Positional", {
+    start: ["Peace and harmony. I avoid conflict when possible."],
+    take: ["Only taking out of absolute necessity."],
+    losePiece: ["I accept this loss calmly."],
+    check: ["A gentle check."],
+    win: ["Harmonious resolution."],
+    lose: ["A well-deserved victory for you."]
+}, function(moves) {
     let nonCaps = moves.filter(function(m) { return !m.captured; });
-    if (nonCaps.length > 0 && Math.random() < 0.80) {
-        return nonCaps[Math.floor(Math.random() * nonCaps.length)];
-    }
-    return null;
+    return (nonCaps.length > 0 && Math.random() < 0.80) ? nonCaps[Math.floor(Math.random() * nonCaps.length)] : null;
 });
-addBot("beh_crag", "Crag (Turtle Guard)", 1100, "behavior", "Solid", function(moves) {
+
+addBot("beh_crag", "Crag (Turtle Guard)", 1100, "behavior", "Solid", {
+    start: ["Good luck breaking my stone fortress!"],
+    take: ["Snapping off the invaders."],
+    losePiece: ["A chip off the rock, nothing more."],
+    check: ["Check from behind the ramparts!"],
+    win: ["The fortress held strong!"],
+    lose: ["You cracked the shell. Impressive!"]
+}, function(moves) {
     let def = moves.filter(function(m) {
         if (m.color === 'w') {
             return m.to[1] <= '4';
@@ -177,23 +462,33 @@ addBot("beh_crag", "Crag (Turtle Guard)", 1100, "behavior", "Solid", function(mo
             return m.to[1] >= '5';
         }
     });
-    if (def.length > 0 && Math.random() < 0.75) {
-        return def[Math.floor(Math.random() * def.length)];
-    }
-    return null;
+    return (def.length > 0 && Math.random() < 0.75) ? def[Math.floor(Math.random() * def.length)] : null;
 });
-addBot("beh_ballista", "Ballista (Long-Range Sniper)", 1400, "behavior", "Positional", function(moves) {
+
+addBot("beh_ballista", "Ballista (Long-Range Sniper)", 1400, "behavior", "Positional", {
+    start: ["Long-range optics locked in. Mind your files and diagonals."],
+    take: ["Target destroyed from afar."],
+    losePiece: ["My sniper post was compromised!"],
+    check: ["Check from edge to edge!"],
+    win: ["Direct artillery hit!"],
+    lose: ["Close-quarters combat was my downfall."]
+}, function(moves) {
     let snipes = moves.filter(function(m) {
         let isLongPiece = (m.piece === 'b' || m.piece === 'r');
         let dist = Math.abs(m.to.charCodeAt(0) - m.from.charCodeAt(0));
         return isLongPiece && dist >= 2;
     });
-    if (snipes.length > 0 && Math.random() < 0.80) {
-        return snipes[Math.floor(Math.random() * snipes.length)];
-    }
-    return null;
+    return (snipes.length > 0 && Math.random() < 0.80) ? snipes[Math.floor(Math.random() * snipes.length)] : null;
 });
-addBot("beh_retreat", "Bramble (Cautious Dodger)", 950, "behavior", "Quirky", function(moves) {
+
+addBot("beh_retreat", "Bramble (Cautious Dodger)", 950, "behavior", "Quirky", {
+    start: ["I don't like danger. I'll retreat whenever things look scary!"],
+    take: ["Only taking if it's completely safe!"],
+    losePiece: ["Aaaah! I knew I should have retreated further!"],
+    check: ["Check from a safe distance!"],
+    win: ["Caution wins the race!"],
+    lose: ["Backed into a corner!"]
+}, function(moves) {
     let retreats = moves.filter(function(m) {
         if (m.color === 'w') {
             return m.to[1] < m.from[1];
@@ -201,45 +496,47 @@ addBot("beh_retreat", "Bramble (Cautious Dodger)", 950, "behavior", "Quirky", fu
             return m.to[1] > m.from[1];
         }
     });
-    if (retreats.length > 0 && Math.random() < 0.65) {
-        return retreats[Math.floor(Math.random() * retreats.length)];
-    }
-    return null;
+    return (retreats.length > 0 && Math.random() < 0.65) ? retreats[Math.floor(Math.random() * retreats.length)] : null;
 });
-addBot("beh_wing", "Aethelgard (Fianchetto Master)", 1650, "behavior", "Positional", function(moves) {
+
+addBot("beh_wing", "Aethelgard (Fianchetto Master)", 1650, "behavior", "Positional", {
+    start: ["Flank fianchettoes are the highest form of strategic chess."],
+    take: ["The fianchetto bishop strikes!"],
+    losePiece: ["My wing was overextended."],
+    check: ["Check through the fianchetto diagonal!"],
+    win: ["Flank mastery victorious."],
+    lose: ["A masterclass through the center from you."]
+}, function(moves) {
     let targets = ['g3', 'b3', 'g6', 'b6', 'bg2', 'bb2', 'bg7', 'bb7'];
     let fian = moves.filter(function(m) {
         let sanLower = m.san.toLowerCase();
         return targets.some(function(s) { return sanLower.indexOf(s) !== -1; });
     });
-    if (fian.length > 0 && Math.random() < 0.70) {
-        return fian[Math.floor(Math.random() * fian.length)];
-    }
-    return null;
-});
-addBot("beh_tempest", "Tempest (Gambit Striker)", 1750, "behavior", "Tactical", function(moves) {
-    let gambitMoves = moves.filter(function(m) {
-        return m.captured || m.san.indexOf('+') !== -1 || m.piece === 'n';
-    });
-    if (gambitMoves.length > 0 && Math.random() < 0.70) {
-        return gambitMoves[Math.floor(Math.random() * gambitMoves.length)];
-    }
-    return null;
+    return (fian.length > 0 && Math.random() < 0.70) ? fian[Math.floor(Math.random() * fian.length)] : null;
 });
 
-// Calibration Benchmarks for Placement Matches
+addBot("beh_tempest", "Tempest (Gambit Striker)", 1750, "behavior", "Tactical", {
+    start: ["Take my pawns if you dare; your king will pay the price."],
+    take: ["A tactical strike straight to the heart!"],
+    losePiece: ["All part of the dynamic initiative."],
+    check: ["Check! The storm arrives!"],
+    win: ["Swept away by the hurricane!"],
+    lose: ["You weathered the tempest cleanly. Respect."]
+}, function(moves) {
+    let gambitMoves = moves.filter(function(m) { return m.captured || m.san.indexOf('+') !== -1 || m.piece === 'n'; });
+    return (gambitMoves.length > 0 && Math.random() < 0.70) ? gambitMoves[Math.floor(Math.random() * gambitMoves.length)] : null;
+});
+
 const PLACEMENT_BENCHMARKS = [600, 900, 1200, 1500, 1800];
 
-// Admin Username Generator Word Pools
-const word1 = ["Sneaky", "Brilliant", "Clumsy", "Rapid", "Silent", "Angry", "Happy", "Cosmic", "Shadow", "Golden", "Iron", "Mystic", "Rogue", "Brave", "Lazy", "Fierce", "Swift", "Toxic", "Crystal", "Phantom", "Cyber"];
-const word2 = ["Penguin", "Dragon", "Wizard", "Knight", "Panda", "Tiger", "Goblin", "Ninja", "Robot", "Pirate", "Ghost", "Falcon", "Kraken", "Wolf", "Bear", "Sloth", "Cobra", "Raven", "Shark", "Yeti", "Cyborg"];
-const word3 = ["Slayer", "Master", "Crusher", "King", "Queen", "Legend", "Maker", "Hunter", "Breaker", "Walker", "Sniper", "Jumper", "Dasher", "Runner", "Thinker", "Player", "Tactic", "Gambit", "Blunder", "Genius", "Hero"];
-
-function generateBotUsername() {
-    let w1 = word1[Math.floor(Math.random() * word1.length)];
-    let w2 = word2[Math.floor(Math.random() * word2.length)];
-    let w3 = word3[Math.floor(Math.random() * word3.length)];
-    return w1 + w2 + w3;
+// Bot Dialogue Dispatcher
+function triggerBotChat(eventKey) {
+    if (!currentBot || !currentBot.dialogues || !currentBot.dialogues[eventKey]) {
+        return;
+    }
+    let lines = currentBot.dialogues[eventKey];
+    let pick = lines[Math.floor(Math.random() * lines.length)];
+    botChat("<strong>" + currentBot.name + ":</strong> \"" + pick + "\"");
 }
 
 // =================================================================
@@ -277,7 +574,7 @@ function saveGuestAndDNA() {
     }
 }
 
-// Standard FIDE Rating Adjustment (Winning always increases your rating)
+// Official Elo Update Algorithm (Winning always increases Profile Elo)
 function updatePlayerRatingOnMatch(oppElo, outcome) {
     let currentRating = playerDNA.calculatedElo || 1200;
     let expected = 1 / (1 + Math.pow(10, (oppElo - currentRating) / 400));
@@ -315,27 +612,19 @@ function analyzeGameForDeepDNA(history, playerColor, gameOutcome) {
 
         if (posEval >= 250) {
             aheadMoves++;
-            if (cpLoss < 60) {
-                aheadAccurate++;
-            }
+            if (cpLoss < 60) aheadAccurate++;
         }
         if (posEval <= -250) {
             underPressureMoves++;
-            if (cpLoss < 60) {
-                underPressureAccurate++;
-            }
+            if (cpLoss < 60) underPressureAccurate++;
         }
         if (m.wasInCheck) {
             checkResponses++;
-            if (cpLoss < 80) {
-                checkAccurate++;
-            }
+            if (cpLoss < 80) checkAccurate++;
         }
         if (m.pieceCount <= 10) {
             endgameMoves++;
-            if (cpLoss < 50) {
-                endgameAccurate++;
-            }
+            if (cpLoss < 50) endgameAccurate++;
         }
     });
 
@@ -359,7 +648,6 @@ function analyzeGameForDeepDNA(history, playerColor, gameOutcome) {
 
     playerDNA.tactics = Math.min(100, Math.max(10, Math.round(100 - (playerDNA.acpl * 0.75))));
 
-    // Adjust Profile Rating via official FIDE Elo delta
     let oppRating = currentBot ? currentBot.elo : 1200;
     updatePlayerRatingOnMatch(oppRating, gameOutcome);
 
@@ -430,69 +718,68 @@ function cpToWinProb(cp) {
     return 1 / (1 + Math.pow(10, -cp / 400));
 }
 
-function calculateCAPS2MoveAccuracy(winProbBefore, winProbAfter) {
-    let winDiff = Math.max(0, (winProbBefore - winProbAfter) * 100);
-    let accuracy = 103.1668 * Math.exp(-0.04354 * winDiff) - 3.1669;
+function calculateCAPS2MoveAccuracy(winDiff) {
+    let diffPct = Math.max(0, winDiff * 100);
+    let accuracy = 103.1668 * Math.exp(-0.04354 * diffPct) - 3.1669;
     return Math.max(0, Math.min(100, accuracy));
 }
 
-function classifyMove(diffCp, winDiff, isSacrifice) {
-    if (isSacrifice === undefined) {
-        isSacrifice = false;
+// Complete Chess.com Move Classification Specification Rule Set
+function classifyMoveRuleSet(isBook, isSacrifice, isOnlyWinningMove, isMissedWin, winProbDrop, isEngineTop1) {
+    if (isBook) {
+        return { tag: "Book Move", sym: "📖", key: "book", color: "#a88b68" };
     }
-    if (diffCp >= 0 && isSacrifice) {
+    if (isSacrifice && winProbDrop < 0.02) {
         return { tag: "Brilliant", sym: "!!", key: "brilliant", color: "#1ba599" };
     }
-    if (diffCp >= -10) {
-        return { tag: "Great", sym: "!", key: "great", color: "#5c8bb0" };
+    if (isOnlyWinningMove && winProbDrop < 0.02) {
+        return { tag: "Great Move", sym: "!", key: "great", color: "#5c8bb0" };
     }
-    if (diffCp >= -25) {
-        return { tag: "Best", sym: "★", key: "best", color: "#95b645" };
+    if (isMissedWin) {
+        return { tag: "Miss", sym: "✖", key: "miss", color: "#ea5b5b" };
     }
-    if (diffCp >= -55) {
-        return { tag: "Excellent", sym: "✓", key: "excellent", color: "#96bc4b" };
+    if (winProbDrop < 0.02) {
+        if (isEngineTop1) {
+            return { tag: "Best Move", sym: "★", key: "best", color: "#95b645" };
+        } else {
+            return { tag: "Excellent Move", sym: "✓", key: "excellent", color: "#96bc4b" };
+        }
     }
-    if (diffCp >= -100) {
-        return { tag: "Good", sym: "✓", key: "good", color: "#8bb158" };
+    if (winProbDrop >= 0.02 && winProbDrop < 0.05) {
+        return { tag: "Good Move", sym: "👍", key: "good", color: "#8bb158" };
     }
-    if (diffCp >= -175) {
+    if (winProbDrop >= 0.05 && winProbDrop < 0.10) {
         return { tag: "Inaccuracy", sym: "?!", key: "inaccuracy", color: "#f0c15c" };
     }
-    if (diffCp >= -320) {
+    if (winProbDrop >= 0.10 && winProbDrop < 0.20) {
         return { tag: "Mistake", sym: "?", key: "mistake", color: "#e69d41" };
-    }
-    if (winDiff > 0.35 && diffCp < -450) {
-        return { tag: "Miss", sym: "✖", key: "miss", color: "#ea5b5b" };
     }
     return { tag: "Blunder", sym: "??", key: "blunder", color: "#fa412d" };
 }
 
-// Authentic FIDE Performance Algorithm: correctly pairs player & bot based on who played White vs Black
-function calculateMatchPerformancePair(acplW, acplB, eloWhite, eloBlack, outcomeWhite) {
-    let baseQualityW = Math.max(100, Math.min(2900, 2700 - (acplW * 16)));
-    let baseQualityB = Math.max(100, Math.min(2900, 2700 - (acplB * 16)));
-
-    let perfW = 0;
-    let perfB = 0;
-
-    if (outcomeWhite === 1) {
-        // White Won
-        perfW = Math.max(eloBlack + 100, Math.round((baseQualityW * 0.40) + ((eloBlack + 350) * 0.60)));
-        perfB = Math.max(100, Math.min(perfW - 100, Math.round((baseQualityB * 0.40) + ((eloWhite - 350) * 0.60))));
-    } else if (outcomeWhite === 0) {
-        // Black Won
-        perfB = Math.max(eloWhite + 100, Math.round((baseQualityB * 0.40) + ((eloWhite + 350) * 0.60)));
-        perfW = Math.max(100, Math.min(perfB - 100, Math.round((baseQualityW * 0.40) + ((eloBlack - 350) * 0.60))));
+function calculateRealPerformance(acc, oppElo, outcome) {
+    let basePerf = 0;
+    if (acc >= 98) {
+        basePerf = 2700 + (acc - 98) * 100;
+    } else if (acc >= 90) {
+        basePerf = 2000 + (acc - 90) * 87.5;
+    } else if (acc >= 75) {
+        basePerf = 1300 + (acc - 75) * 46.6;
+    } else if (acc >= 50) {
+        basePerf = 600 + (acc - 50) * 28;
+    } else if (acc >= 25) {
+        basePerf = 200 + (acc - 25) * 16;
     } else {
-        // Draw
-        perfW = Math.round((baseQualityW * 0.40) + (eloBlack * 0.60));
-        perfB = Math.round((baseQualityB * 0.40) + (eloWhite * 0.60));
+        basePerf = Math.max(50, acc * 4);
     }
 
-    return {
-        white: Math.max(100, Math.min(3100, perfW)),
-        black: Math.max(100, Math.min(3100, perfB))
-    };
+    if (outcome === 1) {
+        basePerf = Math.max(oppElo + 50, basePerf);
+    } else if (outcome === 0) {
+        basePerf = Math.min(Math.max(50, oppElo - 50), basePerf);
+    }
+
+    return Math.max(50, Math.min(3200, Math.round(basePerf)));
 }
 
 function evaluatePositionAsync(fen, depth, timeoutMs) {
@@ -1148,6 +1435,7 @@ function startGame(isCustomFen) {
         document.getElementById('black-name').innerText = currentBot.name;
         document.getElementById('black-elo').innerText = "(Elo " + currentBot.elo + ")";
         botChat("Match started vs " + currentBot.name + " (" + currentBot.elo + " Elo).");
+        triggerBotChat('start');
     } else if (currentMode === 'clone') {
         currentBot = {
             id: 'clone_bot',
@@ -1262,7 +1550,11 @@ function onDragStart(source, piece) {
         return false;
     }
     let isMyTurn = (game.turn() === myPlayerColor) || currentMode === 'pvp';
-    return isMyTurn && game.moves({ square: source }).length > 0;
+    if (!isMyTurn) {
+        return false;
+    }
+    highlightLegalMoves(source);
+    return game.moves({ square: source }).length > 0;
 }
 
 function onDrop(source, target) {
@@ -1287,8 +1579,14 @@ function handleMoveVisuals(move, isSync) {
         playSound('end');
     } else if (game.in_check()) {
         playSound('check');
+        triggerBotChat('check');
     } else if (move.captured) {
         playSound('capture');
+        if (move.color !== myPlayerColor) {
+            triggerBotChat('take');
+        } else {
+            triggerBotChat('losePiece');
+        }
     } else {
         playSound('move');
     }
@@ -1422,6 +1720,12 @@ function endGame(result, msg) {
     updateStatus(msg);
     botChat(msg);
 
+    if (result === 'win') {
+        triggerBotChat('lose');
+    } else if (result === 'loss') {
+        triggerBotChat('win');
+    }
+
     let opponentName = currentBot ? currentBot.name : "Player 2";
     recordLeaderboardMatch(opponentName, result);
 
@@ -1497,7 +1801,9 @@ function calculateMaterial() {
         }
     }
     document.getElementById('grave-w').innerHTML = deadB;
+    document.getElementById('grave-w').style.display = 'flex';
     document.getElementById('grave-b').innerHTML = deadW;
+    document.getElementById('grave-b').style.display = 'flex';
     let diff = scoreW - scoreB;
     document.getElementById('mat-w').innerText = diff > 0 ? ("+" + diff) : '';
     document.getElementById('mat-b').innerText = diff < 0 ? ("+" + Math.abs(diff)) : '';
@@ -1512,6 +1818,7 @@ async function runChessComAnalysis(gameResult) {
     bEl.innerHTML = '';
     
     let counts = {
+        book: 0,
         brilliant: 0,
         great: 0,
         best: 0,
@@ -1523,39 +1830,31 @@ async function runChessComAnalysis(gameResult) {
         blunder: 0
     };
     let accuracyTotals = { w: [], b: [] };
-    let cpLossTotals = { w: 0, b: 0 };
-    let moveCounts = { w: 0, b: 0 };
     let prevEval = 0;
 
     for (let i = 1; i < gameHistory.length; i++) {
         let item = gameHistory[i];
         let evalForMove = await evaluatePositionAsync(item.fen, 8, 1200);
-        let diffCp = 0;
-        if (item.color === 'w') {
-            diffCp = evalForMove - prevEval;
-        } else {
-            diffCp = prevEval - evalForMove;
-        }
+        let diffCp = (item.color === 'w') ? (evalForMove - prevEval) : (prevEval - evalForMove);
 
-        // Opening allowance: standard development/classical attacks in moves 1-4 carry 0 CP loss penalty
-        let isOpeningMove = (i <= 6 && (item.move === 'e4' || item.move === 'd4' || item.move === 'Qh5' || item.move === 'Bc4' || item.move === 'Nf3' || item.move === 'Nc3'));
-        let cpLoss = isOpeningMove ? 0 : Math.max(0, -diffCp);
-        item.cpLoss = cpLoss;
+        let winBefore = cpToWinProb(item.color === 'w' ? prevEval : -prevEval);
+        let winAfter = cpToWinProb(item.color === 'w' ? evalForMove : -evalForMove);
+        let winProbDrop = Math.max(0, winBefore - winAfter);
+
+        let isBook = (i <= 6 && (item.move === 'e4' || item.move === 'd4' || item.move === 'Qh5' || item.move === 'Bc4' || item.move === 'Nf3' || item.move === 'c4' || item.move === 'e5' || item.move === 'c5'));
+        let isSacrifice = (item.move.indexOf('x') !== -1 && item.piece && item.piece !== 'p' && diffCp >= 0);
+        let isOnlyWinningMove = (winProbDrop < 0.02 && Math.abs(diffCp) < 15 && prevEval < 150 && evalForMove > 300);
+        let isMissedWin = (prevEval > 300 && evalForMove < 50);
+        let isEngineTop1 = (diffCp >= -10);
+
+        let cls = classifyMoveRuleSet(isBook, isSacrifice, isOnlyWinningMove, isMissedWin, winProbDrop, isEngineTop1);
+
+        let moveAccuracy = isBook ? 100 : calculateCAPS2MoveAccuracy(winProbDrop);
+        accuracyTotals[item.color].push(moveAccuracy);
+        item.cpLoss = isBook ? 0 : Math.max(0, -diffCp);
         item.evalBefore = prevEval;
 
-        cpLossTotals[item.color] += Math.min(500, cpLoss);
-        moveCounts[item.color]++;
-
-        let evalPrevRel = item.color === 'w' ? prevEval : -prevEval;
-        let evalCurRel = item.color === 'w' ? evalForMove : -evalForMove;
-        let winBefore = cpToWinProb(evalPrevRel);
-        let winAfter = cpToWinProb(evalCurRel);
-        
-        let moveAccuracy = isOpeningMove ? 100 : calculateCAPS2MoveAccuracy(winBefore, winAfter);
-        accuracyTotals[item.color].push(moveAccuracy);
-
-        let cls = isOpeningMove ? { tag: "Best", sym: "★", key: "best", color: "#95b645" } : classifyMove(diffCp, Math.abs(winBefore - winAfter));
-        if (item.color === myPlayerColor) {
+        if (item.color === myPlayerColor && counts[cls.key] !== undefined) {
             counts[cls.key]++;
         }
         
@@ -1563,9 +1862,6 @@ async function runChessComAnalysis(gameResult) {
         bEl.innerHTML += '<div class="move-breakdown-row"><span><strong>' + Math.ceil(i / 2) + '. ' + prefix + item.move + '</strong></span><span style="color:' + cls.color + '; font-weight:bold;">' + cls.sym + ' ' + cls.tag + '</span></div>';
         prevEval = evalForMove;
     }
-
-    let acplW = moveCounts.w > 0 ? (cpLossTotals.w / moveCounts.w) : 10;
-    let acplB = moveCounts.b > 0 ? (cpLossTotals.b / moveCounts.b) : 60;
 
     let accW = accuracyTotals.w.length > 0 ? Math.round(accuracyTotals.w.reduce(function(a, b) { return a + b; }, 0) / accuracyTotals.w.length) : 85;
     let accB = accuracyTotals.b.length > 0 ? Math.round(accuracyTotals.b.reduce(function(a, b) { return a + b; }, 0) / accuracyTotals.b.length) : 50;
@@ -1576,22 +1872,16 @@ async function runChessComAnalysis(gameResult) {
     let eloWhite = (myPlayerColor === 'w') ? knownPlayerElo : knownBotElo;
     let eloBlack = (myPlayerColor === 'w') ? knownBotElo : knownPlayerElo;
 
-    let outcomeWhite = 0.5;
-    let gameNumericOutcome = 0.5;
-    if (gameResult === 'win') {
-        outcomeWhite = (myPlayerColor === 'w') ? 1 : 0;
-        gameNumericOutcome = 1;
-    } else if (gameResult === 'loss') {
-        outcomeWhite = (myPlayerColor === 'w') ? 0 : 1;
-        gameNumericOutcome = 0;
-    }
+    let outcomeW = (myPlayerColor === 'w') ? (gameResult === 'win' ? 1 : gameResult === 'loss' ? 0 : 0.5) : (gameResult === 'win' ? 0 : gameResult === 'loss' ? 1 : 0.5);
+    let outcomeB = 1 - outcomeW;
 
-    let matchPerf = calculateMatchPerformancePair(acplW, acplB, eloWhite, eloBlack, outcomeWhite);
+    let perfW = calculateRealPerformance(accW, eloBlack, outcomeW);
+    let perfB = calculateRealPerformance(accB, eloWhite, outcomeB);
 
     document.getElementById('accuracy-score-w').innerText = accW + "%";
     document.getElementById('accuracy-score-b').innerText = accB + "%";
-    document.getElementById('caps-w').innerText = "Perf. Rating: " + matchPerf.white;
-    document.getElementById('caps-b').innerText = "Perf. Rating: " + matchPerf.black;
+    document.getElementById('caps-w').innerText = "Perf. Rating: " + perfW;
+    document.getElementById('caps-b').innerText = "Perf. Rating: " + perfB;
 
     for (let k in counts) {
         let statEl = document.getElementById("stat-" + k);
@@ -1601,13 +1891,15 @@ async function runChessComAnalysis(gameResult) {
     }
     
     document.getElementById('analysis-status').innerText = "CAPS2 Review Complete";
+    
+    let gameNumericOutcome = (gameResult === 'win') ? 1 : (gameResult === 'loss') ? 0 : 0.5;
     analyzeGameForDeepDNA(gameHistory, myPlayerColor, gameNumericOutcome);
 
     if (firestore && currentUser) {
         firestore.collection('users').doc(currentUser.uid).collection('game_history').add({
             timestamp: firebase.firestore.FieldValue.serverTimestamp(),
             accuracy: { white: accW, black: accB },
-            performance: { white: matchPerf.white, black: matchPerf.black },
+            performance: { white: perfW, black: perfB },
             opponent: currentBot ? currentBot.name : "Player 2",
             result: gameResult
         }).catch(function(err) {
